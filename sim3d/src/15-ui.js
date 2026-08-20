@@ -96,6 +96,11 @@
 
     /* ---------------- 剧情对话 ---------------- */
     dialogue(lines, onDone) {
+      // 弹窗打开时先排队，等弹窗关闭再播，避免按键被身后的对话吃掉
+      if (this.modalOpen) {
+        this.pendingDialogue = { lines, onDone };
+        return;
+      }
       this.dialogueQueue = lines.slice();
       this.dialogueDone = onDone;
       this.dialogueEl.classList.remove('hidden');
@@ -145,6 +150,11 @@
       this.modalOpen = null;
       this.block(false);
       if (cb) cb();
+      if (this.pendingDialogue) {
+        const d = this.pendingDialogue;
+        this.pendingDialogue = null;
+        setTimeout(() => this.dialogue(d.lines, d.onDone), 260);
+      }
     },
 
     block(on) {
@@ -284,6 +294,7 @@
         {
           cls: 'settings', name: 'settings',
           onOpen: (body) => {
+            this.game.qManual = true;
             const scale = body.querySelector('#setScale');
             scale.addEventListener('input', () => {
               q.renderScale = parseInt(scale.value, 10) / 100;

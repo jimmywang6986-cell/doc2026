@@ -109,11 +109,11 @@
         this.yaw -= dx * speedLook;
         this.pitch -= (Input.invertY ? -dy : dy) * speedLook;
         // 方向键视角（无需鼠标锁定也可环视）
-        const kLook = 1.7 * dt;
+        const kLook = 2.3 * dt;
         if (Input.down('ArrowLeft')) this.yaw += kLook;
         if (Input.down('ArrowRight')) this.yaw -= kLook;
-        if (Input.down('ArrowUp')) this.pitch += kLook * 0.7;
-        if (Input.down('ArrowDown')) this.pitch -= kLook * 0.7;
+        if (Input.down('ArrowUp')) this.pitch += kLook * 0.85;
+        if (Input.down('ArrowDown')) this.pitch -= kLook * 0.85;
       }
       this.pitch = clamp(this.pitch, -1.45, 1.45);
 
@@ -162,9 +162,16 @@
           this.vel[1] = 0;
         }
       };
-      step(0, this.vel[0] * dt);
-      step(2, this.vel[2] * dt);
-      step(1, this.vel[1] * dt);
+      // 低帧率下把位移拆成小步，避免穿墙
+      const move = [this.vel[0] * dt, this.vel[1] * dt, this.vel[2] * dt];
+      const maxStep = 0.07;
+      const sub = Math.min(8, Math.max(1, Math.ceil(Math.max(
+        Math.abs(move[0]), Math.abs(move[1]), Math.abs(move[2])) / maxStep)));
+      for (let i = 0; i < sub; i++) {
+        step(0, move[0] / sub);
+        step(2, move[2] / sub);
+        step(1, move[1] / sub);
+      }
 
       if (this.pos[1] <= 0) { this.pos[1] = 0; this.vel[1] = 0; this.onGround = true; }
       else if (this.vel[1] !== 0) this.onGround = false;

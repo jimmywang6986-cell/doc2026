@@ -1358,18 +1358,28 @@ void main(){
       this.quad = root.GLU.fullscreenQuad(gl);
 
       this.shadow = root.GLU.makeShadowFBO(gl, 2048);
+      this.shadowSize = 2048;
       this.shadowVP = M4.create();
       this.view = M4.create();
       this.proj = M4.create();
       this.nrm = new Float32Array(9);
       this.size = [0, 0];
-      this.quality = { renderScale: 1, shadows: true, bloom: true, fxaa: true };
+      this.quality = { renderScale: 1, shadows: true, bloom: true, fxaa: true, maxLights: 8 };
       this.exposure = 1.0;
       this.flash = 0;
       this.desat = 0;
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
       gl.cullFace(gl.BACK);
+    },
+
+    setShadowSize(n) {
+      if (this.shadowSize === n) return;
+      const gl = this.gl;
+      gl.deleteTexture(this.shadow.tex);
+      gl.deleteFramebuffer(this.shadow.fbo);
+      this.shadow = root.GLU.makeShadowFBO(gl, n);
+      this.shadowSize = n;
     },
 
     resize(w, h) {
@@ -1491,7 +1501,17 @@ void main(){
       p.u1i('uShadowMap', 2);
       this.bindTex(2, this.shadow.tex);
 
-      const lights = scene.lights.filter((l) => l.on !== false).slice(0, 8);
+      // 低画质下只保留最近/最强的若干光源
+      let lights = scene.lights.filter((l) => l.on !== false && l.intensity > 0);
+      const maxL = Math.min(8, this.quality.maxLights || 8);
+      if (lights.length > maxL) {
+        const cp = cam.pos;
+        lights = lights.slice().sort((a, b) => {
+          const da = Math.hypot(a.pos[0] - cp[0], a.pos[1] - cp[1], a.pos[2] - cp[2]) / (a.intensity + 0.01);
+          const db = Math.hypot(b.pos[0] - cp[0], b.pos[1] - cp[1], b.pos[2] - cp[2]) / (b.intensity + 0.01);
+          return da - db;
+        }).slice(0, maxL);
+      }
       const lp = new Float32Array(32), lc = new Float32Array(32);
       lights.forEach((l, i) => {
         lp[i * 4] = l.pos[0]; lp[i * 4 + 1] = l.pos[1]; lp[i * 4 + 2] = l.pos[2]; lp[i * 4 + 3] = l.range;
@@ -1858,11 +1878,11 @@ void main(){
         this.yaw -= dx * speedLook;
         this.pitch -= (Input.invertY ? -dy : dy) * speedLook;
         // 方向键视角（无需鼠标锁定也可环视）
-        const kLook = 1.7 * dt;
+        const kLook = 2.3 * dt;
         if (Input.down('ArrowLeft')) this.yaw += kLook;
         if (Input.down('ArrowRight')) this.yaw -= kLook;
-        if (Input.down('ArrowUp')) this.pitch += kLook * 0.7;
-        if (Input.down('ArrowDown')) this.pitch -= kLook * 0.7;
+        if (Input.down('ArrowUp')) this.pitch += kLook * 0.85;
+        if (Input.down('ArrowDown')) this.pitch -= kLook * 0.85;
       }
       this.pitch = clamp(this.pitch, -1.45, 1.45);
 
@@ -1911,9 +1931,16 @@ void main(){
           this.vel[1] = 0;
         }
       };
-      step(0, this.vel[0] * dt);
-      step(2, this.vel[2] * dt);
-      step(1, this.vel[1] * dt);
+      // 低帧率下把位移拆成小步，避免穿墙
+      const move = [this.vel[0] * dt, this.vel[1] * dt, this.vel[2] * dt];
+      const maxStep = 0.07;
+      const sub = Math.min(8, Math.max(1, Math.ceil(Math.max(
+        Math.abs(move[0]), Math.abs(move[1]), Math.abs(move[2])) / maxStep)));
+      for (let i = 0; i < sub; i++) {
+        step(0, move[0] / sub);
+        step(2, move[2] / sub);
+        step(1, move[1] / sub);
+      }
 
       if (this.pos[1] <= 0) { this.pos[1] = 0; this.vel[1] = 0; this.onGround = true; }
       else if (this.vel[1] !== 0) this.onGround = false;
@@ -3240,7 +3267,7 @@ void main(){
     {
       id: 'mb', kind: 'mb', name: '主板', full: 'NOVA Z-990 GAMING (ATX)', cat: '主板',
       model: 'motherboard', movable: true,
-      shelf: [-3.86, 0.985, -1.55], shelfRot: [-PI / 2, 0.2, 0],
+      shelf: [-3.86, 0.985, -1.60], shelfRot: [-PI / 2, 0.2, 0],
       hold: { pos: [0.02, -0.20, -0.52], rot: [-1.15, 0.25, 0] },
       spec: ['板型 ATX（305 × 244 mm）', '插槽 LGA1851 · Z990 芯片组',
         '内存 4 × DDR5，最高 192GB', '扩展 PCIe 5.0 x16 + 两个 M.2', '供电 16+1+2 相，8 层 PCB'],
@@ -3256,7 +3283,7 @@ void main(){
     },
     {
       id: 'cpu', kind: 'cpu', name: 'CPU 处理器', full: 'NOVA CORE X9-14900K', cat: '核心部件',
-      model: 'cpu', shelf: [-3.86, 0.972, -0.95], shelfRot: [-PI / 2, 0, 0],
+      model: 'cpu', shelf: [-3.86, 1.502, -1.70], shelfRot: [-PI / 2, 0, 0],
       hold: { pos: [0.09, -0.10, -0.26], rot: [-0.9, 0.3, 0] },
       spec: ['24 核 32 线程 · 睿频 5.8GHz', '插座 LGA1851（1851 个触点）',
         '三级缓存 36MB', '基础功耗 125W，睿频可达 253W', '内存控制器 DDR5-6400 原生'],
@@ -3273,7 +3300,7 @@ void main(){
     {
       id: 'ram1', kind: 'ram', name: '内存条 ①', full: 'NOVA VENOM DDR5-6400 16GB', cat: '内存',
       model: 'ram', modelOpts: { color: [0.16, 0.17, 0.20], rgb: [0.45, 0.78, 1.0] },
-      shelf: [-3.86, 0.982, -0.55], shelfRot: [-PI / 2, 0.1, 0],
+      shelf: [-3.86, 1.512, -1.42], shelfRot: [-PI / 2, 0.1, 0],
       hold: { pos: [0.10, -0.11, -0.30], rot: [-0.4, 0.5, 0.3] },
       spec: ['DDR5-6400 CL30 · 16GB', '工作电压 1.35V（XMP）', '带宽 51.2 GB/s（单条）', '带铝合金马甲与 RGB 导光条'],
       lesson: {
@@ -3289,7 +3316,7 @@ void main(){
     {
       id: 'ram2', kind: 'ram', name: '内存条 ②', full: 'NOVA VENOM DDR5-6400 16GB', cat: '内存',
       model: 'ram', modelOpts: { color: [0.16, 0.17, 0.20], rgb: [0.62, 0.55, 1.0] },
-      shelf: [-3.86, 0.982, -0.40], shelfRot: [-PI / 2, -0.1, 0],
+      shelf: [-3.86, 1.512, -1.27], shelfRot: [-PI / 2, -0.1, 0],
       hold: { pos: [0.10, -0.11, -0.30], rot: [-0.4, 0.5, 0.3] },
       spec: ['与 ①同一套装（同批次）', '双通道需两条同规格', 'CL30 时序 · 6400MT/s'],
       lesson: {
@@ -3303,7 +3330,7 @@ void main(){
     },
     {
       id: 'm2', kind: 'm2', name: 'M.2 固态硬盘', full: 'NOVA SSD 2TB PCIe 5.0', cat: '存储',
-      model: 'ssdM2', shelf: [-3.86, 0.968, -0.15], shelfRot: [-PI / 2, 0, 0],
+      model: 'ssdM2', shelf: [-3.86, 1.498, -1.02], shelfRot: [-PI / 2, 0, 0],
       hold: { pos: [0.08, -0.09, -0.24], rot: [-1.0, 0.3, 0] },
       spec: ['M.2 2280 · PCIe 5.0 x4 · NVMe', '顺序读取 14000 MB/s', '2TB TLC + 独立缓存', '主控温度上限 70℃，需散热马甲'],
       lesson: {
@@ -3318,7 +3345,7 @@ void main(){
     },
     {
       id: 'm2hs', kind: 'm2hs', name: 'M.2 散热马甲', full: '原装铝合金马甲 + 导热垫', cat: '存储',
-      model: 'm2Heatsink', shelf: [-3.86, 0.972, 0.05], shelfRot: [-PI / 2, 0.15, 0],
+      model: 'm2Heatsink', shelf: [-3.86, 1.502, -0.86], shelfRot: [-PI / 2, 0.15, 0],
       hold: { pos: [0.08, -0.09, -0.25], rot: [-1.0, 0.3, 0] },
       spec: ['铝合金鳍片 + 硅脂导热垫', '可降低主控温度 15~25℃'],
       lesson: {
@@ -3331,7 +3358,7 @@ void main(){
     },
     {
       id: 'paste', kind: 'paste', name: '导热硅脂', full: 'TG-12 高导热硅脂 4g', cat: '耗材',
-      model: 'thermalPasteTube', shelf: [-3.86, 0.976, 0.30], shelfRot: [0, 0.4, 0],
+      model: 'thermalPasteTube', shelf: [-3.86, 1.506, -0.62], shelfRot: [0, 0.4, 0],
       hold: { pos: [0.11, -0.10, -0.26], rot: [0.1, -0.4, 0.5] },
       spec: ['导热系数 12.5 W/m·K', '非导电、不固化', '用量：中心一点，约黄豆大小'],
       lesson: {
@@ -3346,7 +3373,7 @@ void main(){
     },
     {
       id: 'cooler', kind: 'cooler', name: 'CPU 散热器', full: 'NOVA FROST TOWER 6（6 热管风冷）', cat: '散热',
-      model: 'coolerBody', shelf: [-3.86, 0.965, 0.75], shelfRot: [0, 0.3, 0],
+      model: 'coolerBody', shelf: [-3.86, 0.965, -0.95], shelfRot: [0, 0.3, 0],
       hold: { pos: [0.06, -0.22, -0.46], rot: [0.0, 0.4, 0] },
       children: [
         { model: 'fanCpuFrame', pos: [0.0715, 0.11, 0.048], rot: [0, PI / 2, 0] },
@@ -3365,7 +3392,7 @@ void main(){
     },
     {
       id: 'gpu', kind: 'gpu', name: '显卡', full: 'NOVA RTV-5080 16GB', cat: '核心部件',
-      model: 'gpuBody', shelf: [-3.86, 1.545, -1.25], shelfRot: [0, 0.15, 0],
+      model: 'gpuBody', shelf: [-3.84, 0.968, -0.20], shelfRot: [0, 0.15, 0],
       hold: { pos: [0.04, -0.20, -0.50], rot: [0.2, 0.5, 0] },
       children: [
         { model: 'fanGpuFrame', pos: [0.05, -0.0455, 0.055], rot: [PI / 2, 0, 0] },
@@ -3401,7 +3428,7 @@ void main(){
     },
     {
       id: 'ssd', kind: 'ssd', name: 'SATA 固态硬盘', full: 'NOVA SATA SSD 1TB 2.5"', cat: '存储',
-      model: 'ssdSata', shelf: [-3.86, 1.502, -0.55], shelfRot: [0, 0.1, 0],
+      model: 'ssdSata', shelf: [-3.86, 1.502, -0.34], shelfRot: [0, 0.1, 0],
       hold: { pos: [0.09, -0.11, -0.28], rot: [0.1, 0.5, 0] },
       spec: ['2.5 英寸 · SATA 6Gb/s', '顺序读取 560 MB/s', '1TB · 用作游戏仓库盘'],
       lesson: {
@@ -3415,7 +3442,7 @@ void main(){
     },
     {
       id: 'hdd', kind: 'hdd', name: '机械硬盘', full: 'NOVA ARCHIVE 8TB 7200rpm', cat: '存储',
-      model: 'hdd', shelf: [-3.86, 1.508, -0.15], shelfRot: [0, -0.1, 0],
+      model: 'hdd', shelf: [-3.86, 1.508, -0.08], shelfRot: [0, -0.1, 0],
       hold: { pos: [0.07, -0.13, -0.32], rot: [0.1, 0.4, 0] },
       spec: ['3.5 英寸 · 7200 转', '256MB 缓存 · SATA 6Gb/s', '8TB 冷数据存储', '工作时禁止搬动'],
       lesson: {
@@ -3429,7 +3456,7 @@ void main(){
     },
     {
       id: 'fan1', kind: 'fan', name: '机箱风扇 ①', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.35], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.26], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['120 × 120 × 25 mm', '转速 500~1800rpm（PWM 4pin）', '风量 62 CFM · 噪音 22dBA', 'ARGB 导光环'],
@@ -3445,7 +3472,7 @@ void main(){
     },
     {
       id: 'fan2', kind: 'fan', name: '机箱风扇 ②', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.55], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.46], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['与 ①同型号', '用于前面板第二进风位'],
@@ -3458,7 +3485,7 @@ void main(){
     },
     {
       id: 'fan3', kind: 'fan', name: '机箱风扇 ③', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.75], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.66], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['与 ①同型号', '用于机箱后部排风位'],
@@ -3513,7 +3540,7 @@ void main(){
     {
       id: 'c24', kind: 'c24', name: '24pin 主板供电线', full: 'ATX 24-pin 主供电', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.052, pins: 12, strands: 8, color: [0.07, 0.07, 0.08] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -1.3], shelfRot: [0, 0.3, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -1.30], shelfRot: [0, 0.3, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['24 针（20+4）· 主板全域供电', '提供 +12V / +5V / +3.3V 与 PS_ON 信号'],
       lesson: {
@@ -3527,7 +3554,7 @@ void main(){
     {
       id: 'ceps', kind: 'ceps', name: 'CPU 供电线 (EPS 8pin)', full: 'EPS12V 8-pin', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.030, pins: 8, strands: 5, color: [0.07, 0.07, 0.08] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -1.0], shelfRot: [0, -0.2, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -1.00], shelfRot: [0, -0.2, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['8 针 · 纯 +12V', '单口可承载约 300W'],
       lesson: {
@@ -3542,7 +3569,7 @@ void main(){
     {
       id: 'cpcie', kind: 'cpcie', name: '显卡供电线 (PCIe 8pin)', full: 'PCIe 8-pin (6+2)', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.030, pins: 8, strands: 5, color: [0.08, 0.08, 0.09] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.7], shelfRot: [0, 0.15, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.70], shelfRot: [0, 0.15, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['6+2 针可拆设计', '单口 150W（ATX 3.0 起可短时更高）'],
       lesson: {
@@ -3557,7 +3584,7 @@ void main(){
     {
       id: 'csata', kind: 'csata', name: 'SATA 供电 + 数据线', full: 'SATA 15pin 电源 + 7pin 数据', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.024, pins: 7, strands: 4, color: [0.06, 0.10, 0.18] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.4], shelfRot: [0, -0.25, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.40], shelfRot: [0, -0.25, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['15pin 供电（+12V/+5V/+3.3V）', '7pin 数据 · 6Gb/s'],
       lesson: {
@@ -3572,7 +3599,7 @@ void main(){
     {
       id: 'cfp', kind: 'cfp', name: '前面板控制线', full: 'F_PANEL + USB3.0 + HD_AUDIO', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.020, pins: 9, strands: 7, color: [0.10, 0.10, 0.11] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.1], shelfRot: [0, 0.2, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.10], shelfRot: [0, 0.2, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['POWER SW / RESET SW / HDD LED / POWER LED', 'USB3.0 19pin · HD_AUDIO 9pin'],
       lesson: {
@@ -3588,7 +3615,7 @@ void main(){
     {
       id: 'cfan', kind: 'cfan', name: '风扇集线器与风扇线', full: 'PWM HUB + 4pin 风扇线', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.018, pins: 4, strands: 4, color: [0.06, 0.06, 0.07] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, 0.2], shelfRot: [0, -0.15, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, 0.20], shelfRot: [0, -0.15, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['4pin PWM · 支持温控曲线', 'HUB 汇总多把风扇到一个主板接口'],
       lesson: {
@@ -3603,7 +3630,7 @@ void main(){
     {
       id: 'cext', kind: 'cext', name: '外设线材套装', full: 'DP 1.4 线 + 键鼠 USB + 电源线', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.026, pins: 6, strands: 5, color: [0.05, 0.05, 0.06] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, 0.5], shelfRot: [0, 0.25, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, 0.50], shelfRot: [0, 0.25, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['DisplayPort 1.4 · 支持 2K 165Hz', '键鼠 USB-A', 'C13 市电线'],
       lesson: {
@@ -3617,7 +3644,7 @@ void main(){
     },
     {
       id: 'antenna', kind: 'antenna', name: 'Wi-Fi 天线', full: '双频磁吸外置天线', cat: '网络',
-      model: 'wifiAntenna', shelf: [-3.86, 1.99, 0.8], shelfRot: [0, 0.1, 0],
+      model: 'wifiAntenna', shelf: [-3.86, 2.01, 0.80], shelfRot: [0, 0.1, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['Wi-Fi 7 双频 · 磁吸底座', '接主板后置 SMA 接口'],
       lesson: {
@@ -3967,7 +3994,7 @@ void main(){
     add('bench', M('bench'), W.benchPos);
     add('desk', M('deskSmall'), W.deskPos);
     add('shelf', M('shelf'), W.shelfPos, [0, PI / 2, 0]);
-    add('chair', M('chair'), [0.1, 0, -1.70], [0, 0.5, 0]);
+    add('chair', M('chair'), [1.85, 0, -1.55], [0, 0.9, 0]);
     add('rug', M('rug'), [1.60, 0, 1.20], [0, 0.1, 0]);
     add('crate1', M('crate'), [-3.60, 0, 2.55], [0, 0.3, 0]);
     add('crate2', M('crate'), [-3.05, 0, 2.80], [0, -0.2, 0]);
@@ -4042,7 +4069,7 @@ void main(){
       box(-2.75, 0, -3.36, 1.50, 0.95, -2.47),  // 工作台
       box(2.03, 0, -3.38, 3.77, 0.75, -2.62),   // 显示器桌
       box(-4.16, 0, -2.12, -3.62, 2.05, 1.52),  // 货架
-      box(-0.35, 0, -2.10, 0.55, 0.75, -1.20),  // 椅子
+      box(1.55, 0, -1.85, 2.15, 0.60, -1.25),   // 椅子
       box(-3.85, 0, 2.30, -3.35, 0.85, 2.80),   // 纸箱
       box(-3.30, 0, 2.55, -2.80, 0.45, 3.05),
     );
@@ -4623,6 +4650,11 @@ void main(){
 
     /* ---------------- 剧情对话 ---------------- */
     dialogue(lines, onDone) {
+      // 弹窗打开时先排队，等弹窗关闭再播，避免按键被身后的对话吃掉
+      if (this.modalOpen) {
+        this.pendingDialogue = { lines, onDone };
+        return;
+      }
       this.dialogueQueue = lines.slice();
       this.dialogueDone = onDone;
       this.dialogueEl.classList.remove('hidden');
@@ -4672,6 +4704,11 @@ void main(){
       this.modalOpen = null;
       this.block(false);
       if (cb) cb();
+      if (this.pendingDialogue) {
+        const d = this.pendingDialogue;
+        this.pendingDialogue = null;
+        setTimeout(() => this.dialogue(d.lines, d.onDone), 260);
+      }
     },
 
     block(on) {
@@ -4811,6 +4848,7 @@ void main(){
         {
           cls: 'settings', name: 'settings',
           onOpen: (body) => {
+            this.game.qManual = true;
             const scale = body.querySelector('#setScale');
             scale.addEventListener('input', () => {
               q.renderScale = parseInt(scale.value, 10) / 100;
@@ -5281,25 +5319,49 @@ void main(){
     },
 
     /* ---------------- 交互扫描 ---------------- */
-    scan() {
+    /** 以准星为中心的锥形瞄准：返回 {d, ang} 或 null（ang 越小越正对） */
+    aimPoint(p, radius, range, tol) {
       const cam = this.player.camPos;
       const dir = this.player.forward();
-      const best = { dist: 1e9, kind: null, target: null, step: null };
+      const to = V3.sub([0, 0, 0], p, cam);
+      const d = V3.len(to);
+      if (d > range) return null;
+      const cosA = V3.dot(V3.norm([0, 0, 0], to), dir);
+      if (cosA <= 0.1) return null;
+      const ang = Math.acos(clamp(cosA, -1, 1));
+      const angR = Math.atan2(radius, Math.max(d, 0.06));
+      const off = ang - angR;
+      if (off > (tol != null ? tol : 0.16)) return null;
+      return { d, ang: Math.max(0, off) };
+    },
 
+    aimNode(node, range, tol, extra) {
+      const box = node.worldAABB();
+      if (!box) return null;
+      const c = [
+        (box.min[0] + box.max[0]) / 2, (box.min[1] + box.max[1]) / 2, (box.min[2] + box.max[2]) / 2,
+      ];
+      const r = 0.5 * Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]);
+      return this.aimPoint(c, r + (extra || 0.02), range, tol);
+    },
+
+    scan() {
+      const cands = [];
+      const add = (aim, kind, extra) => {
+        if (!aim) return;
+        // 综合角度偏差与距离打分，安装点略微优先
+        const score = aim.ang * 2.2 + aim.d * 0.12 + (extra && extra.bonus ? -extra.bonus : 0);
+        cands.push(Object.assign({ score, dist: aim.d, kind }, extra || {}));
+      };
       // 1) 手持零件 → 安装点
       const step = this.targetStepForHeld();
       let ghostShown = false;
       if (step) {
         const wp = this.anchorWorld(step);
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        const aim = V3.dot(toT, dir);
-        const inRange = d < 2.0 && aim > 0.80;
-        if (inRange) {
+        const aim = this.aimPoint(wp, 0.05, 2.1, 0.36);
+        if (aim) {
           const ok = this.reqMet(step);
-          best.dist = d;
-          best.kind = ok ? 'install' : 'blocked';
-          best.step = step;
+          add(aim, ok ? 'install' : 'blocked', { step, bonus: 0.5 });
           if (ok) {
             const p = this.held.def;
             const gm = (step.installOpts && p.installModel)
@@ -5322,64 +5384,38 @@ void main(){
           for (const ws of step.wrongSlots) {
             const parent = this.resolveParent(step.anchor.parent);
             const wp2 = M4.xformPoint([0, 0, 0], parent.world, ws.pos);
-            const d2 = V3.dist(cam, wp2);
-            const toT2 = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp2, cam));
-            if (d2 < 1.6 && V3.dot(toT2, dir) > 0.93 && d2 < best.dist) {
-              best.dist = d2; best.kind = 'wrongslot'; best.step = step; best.msg = ws.msg;
-            }
+            add(this.aimPoint(wp2, 0.02, 1.6, 0.10), 'wrongslot', { step, msg: ws.msg, bonus: 0.5 });
           }
         }
       }
       if (!ghostShown) this.ghost.visible = false;
 
-      // 2) 场景物体：零件、手记、电源键、键盘
-      const rayHit = (node, margin) => {
-        const box = node.worldAABB();
-        if (!box) return null;
-        return root.SCENE.rayAABB(cam, dir, root.SCENE.aabbExpand(box, margin || 0.02));
-      };
-
-      // 已锁定安装点时，其他目标需明显更近才会抢焦点
-      const bias = (best.kind === 'install' || best.kind === 'blocked') ? 0.45 : 0;
+      // 2) 场景物体：零件、手记、电源键、显示器
       for (const id in this.world.parts) {
         const part = this.world.parts[id];
         if (!this.canPickup(part)) continue;
-        const t = rayHit(part.node, 0.03);
-        if (t != null && t < 2.6 && t < best.dist - bias) {
-          const pend = this.pendingStepFor(part.def.kind);
-          best.dist = t; best.kind = 'part'; best.target = part; best.step = pend;
-        }
+        add(this.aimNode(part.node, 2.6, 0.16, 0.03), 'part',
+          { target: part, step: this.pendingStepFor(part.def.kind) });
       }
 
-      const nb = this.world.nodes.notebook;
-      const tnb = rayHit(nb, 0.05);
-      if (tnb != null && tnb < 2.2 && tnb < best.dist - bias) {
-        best.dist = tnb; best.kind = 'notebook'; best.target = nb;
-      }
+      add(this.aimNode(this.world.nodes.notebook, 2.3, 0.20, 0.06), 'notebook',
+        { target: this.world.nodes.notebook });
 
-      // 电源键（机箱前面板）
       if (this.isDone('cext_in') || this.powered) {
         const btnLocal = this.world.nodes.case.data.interact.pos;
         const wp = M4.xformPoint([0, 0, 0], this.world.nodes.case.world, btnLocal);
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        if (d < 1.6 && V3.dot(toT, dir) > 0.9 && d < best.dist - bias) {
-          best.dist = d; best.kind = 'power'; best.target = wp;
-        }
+        add(this.aimPoint(wp, 0.03, 1.8, 0.22), 'power', { target: wp });
       }
 
-      // 显示器 / 键盘（BIOS、跑分）
       const cur = this.currentStep();
       if (cur && (cur.special === 'bios' || cur.special === 'bench')) {
-        const wp = [root.WORLD.W.monitorPos[0], root.WORLD.W.monitorPos[1] + 0.4, root.WORLD.W.monitorPos[2] + 0.25];
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        if (d < 1.8 && V3.dot(toT, dir) > 0.82 && d < best.dist - bias) {
-          best.dist = d; best.kind = cur.special; best.target = wp; best.step = cur;
-        }
+        const wp = [root.WORLD.W.monitorPos[0], root.WORLD.W.monitorPos[1] + 0.45, root.WORLD.W.monitorPos[2] + 0.20];
+        add(this.aimPoint(wp, 0.22, 2.2, 0.24), cur.special, { target: wp, step: cur });
       }
 
-      this.focus = best.kind ? best : null;
+      let best = null;
+      for (const c of cands) if (!best || c.score < best.score) best = c;
+      this.focus = best;
       return this.focus;
     },
 
@@ -5613,6 +5649,11 @@ void main(){
     },
 
     finish() {
+      // 先播结局剧情，再出结算报告
+      root.UI.dialogue(STORY.ending, () => this.showReport());
+    },
+
+    showReport() {
       const secs = (performance.now() - this.startTime) / 1000;
       const mm = Math.floor(secs / 60), ss = Math.floor(secs % 60);
       const rank = (this.mistakes <= 1 && this.xmp) ? 'S' : this.mistakes <= 4 ? 'A' : 'B';
@@ -5630,9 +5671,6 @@ void main(){
         xmp: this.xmp,
         rank, comment,
       }, () => this.restart());
-      setTimeout(() => {
-        if (!root.UI.modalOpen) root.UI.dialogue(STORY.ending);
-      }, 400);
     },
 
     devSkip() {
@@ -5676,12 +5714,50 @@ void main(){
         s ? (s.hint || '') : '', done, this.steps.length);
     },
 
+    /* ---------------- 自适应画质 ---------------- */
+    QUALITY: [
+      { renderScale: 1.0, shadows: true, bloom: true, fxaa: true, shadowSize: 2048, maxLights: 8, name: '高' },
+      { renderScale: 0.85, shadows: true, bloom: true, fxaa: true, shadowSize: 1536, maxLights: 8, name: '中高' },
+      { renderScale: 0.72, shadows: true, bloom: false, fxaa: true, shadowSize: 1024, maxLights: 6, name: '中' },
+      { renderScale: 0.58, shadows: false, bloom: true, fxaa: true, shadowSize: 1024, maxLights: 4, name: '低' },
+      { renderScale: 0.45, shadows: false, bloom: false, fxaa: false, shadowSize: 512, maxLights: 3, name: '最低' },
+    ],
+    qLevel: 0,
+    qManual: false,
+
+    applyQuality(level, quiet) {
+      const q = this.QUALITY[clamp(level, 0, this.QUALITY.length - 1)];
+      this.qLevel = clamp(level, 0, this.QUALITY.length - 1);
+      Object.assign(root.RENDER.quality, {
+        renderScale: q.renderScale, shadows: q.shadows, bloom: q.bloom, fxaa: q.fxaa,
+        maxLights: q.maxLights,
+      });
+      root.RENDER.setShadowSize(q.shadowSize);
+      this.onResize();
+      if (!quiet) root.UI.toast('检测到帧率偏低，已自动把画质降到「' + q.name + '」（Esc → 设置里可手动调整）', 'info');
+    },
+
+    /** 帧率过低时逐级降画质；用户手动改过设置后不再自动干预 */
+    autoQuality(dt) {
+      if (this.qManual || !this.started) return;
+      this.qT = (this.qT || 0) + dt;
+      this.qFrames = (this.qFrames || 0) + 1;
+      if (this.qT < 2.2) return;
+      const fps = this.qFrames / this.qT;
+      this.qT = 0; this.qFrames = 0;
+      if (this.qWarm === undefined) { this.qWarm = 0; }
+      if (this.qWarm < 1) { this.qWarm++; return; }   // 跳过首个统计窗口
+      if (fps < 26 && this.qLevel < this.QUALITY.length - 1) this.applyQuality(this.qLevel + 1);
+      else if (fps > 85 && this.qLevel > 0) this.applyQuality(this.qLevel - 1, true);
+    },
+
     /* ---------------- 主循环 ---------------- */
     frame(now) {
       const dtRaw = (now - this.last) / 1000;
       this.last = now;
-      const dt = Math.min(0.05, Math.max(0.0005, dtRaw));
-      this.fps = this.fps ? lerp(this.fps, 1 / dt, 0.08) : 1 / dt;
+      const dt = Math.min(0.1, Math.max(0.0005, dtRaw));
+      this.fps = this.fps ? lerp(this.fps, 1 / dt, 0.12) : 1 / dt;
+      this.autoQuality(dt);
 
       if (this.started) {
         const wasGround = this.player.onGround;
@@ -5745,6 +5821,10 @@ void main(){
 
       // 当前目标零件高亮
       const cur = this.currentStep();
+      const nb = this.world.nodes.notebook;
+      const nbTarget = cur && cur.special === 'notebook';
+      nb.tint = nbTarget ? [0.95, 0.75, 0.25] : null;
+      nb.tintStrength = nbTarget ? 0.30 + Math.sin(now * 0.004) * 0.16 : 0;
       for (const id in this.world.parts) {
         const p = this.world.parts[id];
         const isTarget = cur && !cur.special && p.def.kind === cur.accept && p.state === 'shelf';

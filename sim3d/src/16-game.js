@@ -404,25 +404,49 @@
     },
 
     /* ---------------- 交互扫描 ---------------- */
-    scan() {
+    /** 以准星为中心的锥形瞄准：返回 {d, ang} 或 null（ang 越小越正对） */
+    aimPoint(p, radius, range, tol) {
       const cam = this.player.camPos;
       const dir = this.player.forward();
-      const best = { dist: 1e9, kind: null, target: null, step: null };
+      const to = V3.sub([0, 0, 0], p, cam);
+      const d = V3.len(to);
+      if (d > range) return null;
+      const cosA = V3.dot(V3.norm([0, 0, 0], to), dir);
+      if (cosA <= 0.1) return null;
+      const ang = Math.acos(clamp(cosA, -1, 1));
+      const angR = Math.atan2(radius, Math.max(d, 0.06));
+      const off = ang - angR;
+      if (off > (tol != null ? tol : 0.16)) return null;
+      return { d, ang: Math.max(0, off) };
+    },
 
+    aimNode(node, range, tol, extra) {
+      const box = node.worldAABB();
+      if (!box) return null;
+      const c = [
+        (box.min[0] + box.max[0]) / 2, (box.min[1] + box.max[1]) / 2, (box.min[2] + box.max[2]) / 2,
+      ];
+      const r = 0.5 * Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]);
+      return this.aimPoint(c, r + (extra || 0.02), range, tol);
+    },
+
+    scan() {
+      const cands = [];
+      const add = (aim, kind, extra) => {
+        if (!aim) return;
+        // 综合角度偏差与距离打分，安装点略微优先
+        const score = aim.ang * 2.2 + aim.d * 0.12 + (extra && extra.bonus ? -extra.bonus : 0);
+        cands.push(Object.assign({ score, dist: aim.d, kind }, extra || {}));
+      };
       // 1) 手持零件 → 安装点
       const step = this.targetStepForHeld();
       let ghostShown = false;
       if (step) {
         const wp = this.anchorWorld(step);
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        const aim = V3.dot(toT, dir);
-        const inRange = d < 2.0 && aim > 0.80;
-        if (inRange) {
+        const aim = this.aimPoint(wp, 0.05, 2.1, 0.36);
+        if (aim) {
           const ok = this.reqMet(step);
-          best.dist = d;
-          best.kind = ok ? 'install' : 'blocked';
-          best.step = step;
+          add(aim, ok ? 'install' : 'blocked', { step, bonus: 0.5 });
           if (ok) {
             const p = this.held.def;
             const gm = (step.installOpts && p.installModel)
@@ -445,64 +469,38 @@
           for (const ws of step.wrongSlots) {
             const parent = this.resolveParent(step.anchor.parent);
             const wp2 = M4.xformPoint([0, 0, 0], parent.world, ws.pos);
-            const d2 = V3.dist(cam, wp2);
-            const toT2 = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp2, cam));
-            if (d2 < 1.6 && V3.dot(toT2, dir) > 0.93 && d2 < best.dist) {
-              best.dist = d2; best.kind = 'wrongslot'; best.step = step; best.msg = ws.msg;
-            }
+            add(this.aimPoint(wp2, 0.02, 1.6, 0.10), 'wrongslot', { step, msg: ws.msg, bonus: 0.5 });
           }
         }
       }
       if (!ghostShown) this.ghost.visible = false;
 
-      // 2) 场景物体：零件、手记、电源键、键盘
-      const rayHit = (node, margin) => {
-        const box = node.worldAABB();
-        if (!box) return null;
-        return root.SCENE.rayAABB(cam, dir, root.SCENE.aabbExpand(box, margin || 0.02));
-      };
-
-      // 已锁定安装点时，其他目标需明显更近才会抢焦点
-      const bias = (best.kind === 'install' || best.kind === 'blocked') ? 0.45 : 0;
+      // 2) 场景物体：零件、手记、电源键、显示器
       for (const id in this.world.parts) {
         const part = this.world.parts[id];
         if (!this.canPickup(part)) continue;
-        const t = rayHit(part.node, 0.03);
-        if (t != null && t < 2.6 && t < best.dist - bias) {
-          const pend = this.pendingStepFor(part.def.kind);
-          best.dist = t; best.kind = 'part'; best.target = part; best.step = pend;
-        }
+        add(this.aimNode(part.node, 2.6, 0.16, 0.03), 'part',
+          { target: part, step: this.pendingStepFor(part.def.kind) });
       }
 
-      const nb = this.world.nodes.notebook;
-      const tnb = rayHit(nb, 0.05);
-      if (tnb != null && tnb < 2.2 && tnb < best.dist - bias) {
-        best.dist = tnb; best.kind = 'notebook'; best.target = nb;
-      }
+      add(this.aimNode(this.world.nodes.notebook, 2.3, 0.20, 0.06), 'notebook',
+        { target: this.world.nodes.notebook });
 
-      // 电源键（机箱前面板）
       if (this.isDone('cext_in') || this.powered) {
         const btnLocal = this.world.nodes.case.data.interact.pos;
         const wp = M4.xformPoint([0, 0, 0], this.world.nodes.case.world, btnLocal);
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        if (d < 1.6 && V3.dot(toT, dir) > 0.9 && d < best.dist - bias) {
-          best.dist = d; best.kind = 'power'; best.target = wp;
-        }
+        add(this.aimPoint(wp, 0.03, 1.8, 0.22), 'power', { target: wp });
       }
 
-      // 显示器 / 键盘（BIOS、跑分）
       const cur = this.currentStep();
       if (cur && (cur.special === 'bios' || cur.special === 'bench')) {
-        const wp = [root.WORLD.W.monitorPos[0], root.WORLD.W.monitorPos[1] + 0.4, root.WORLD.W.monitorPos[2] + 0.25];
-        const d = V3.dist(cam, wp);
-        const toT = V3.norm([0, 0, 0], V3.sub([0, 0, 0], wp, cam));
-        if (d < 1.8 && V3.dot(toT, dir) > 0.82 && d < best.dist - bias) {
-          best.dist = d; best.kind = cur.special; best.target = wp; best.step = cur;
-        }
+        const wp = [root.WORLD.W.monitorPos[0], root.WORLD.W.monitorPos[1] + 0.45, root.WORLD.W.monitorPos[2] + 0.20];
+        add(this.aimPoint(wp, 0.22, 2.2, 0.24), cur.special, { target: wp, step: cur });
       }
 
-      this.focus = best.kind ? best : null;
+      let best = null;
+      for (const c of cands) if (!best || c.score < best.score) best = c;
+      this.focus = best;
       return this.focus;
     },
 
@@ -736,6 +734,11 @@
     },
 
     finish() {
+      // 先播结局剧情，再出结算报告
+      root.UI.dialogue(STORY.ending, () => this.showReport());
+    },
+
+    showReport() {
       const secs = (performance.now() - this.startTime) / 1000;
       const mm = Math.floor(secs / 60), ss = Math.floor(secs % 60);
       const rank = (this.mistakes <= 1 && this.xmp) ? 'S' : this.mistakes <= 4 ? 'A' : 'B';
@@ -753,9 +756,6 @@
         xmp: this.xmp,
         rank, comment,
       }, () => this.restart());
-      setTimeout(() => {
-        if (!root.UI.modalOpen) root.UI.dialogue(STORY.ending);
-      }, 400);
     },
 
     devSkip() {
@@ -799,12 +799,50 @@
         s ? (s.hint || '') : '', done, this.steps.length);
     },
 
+    /* ---------------- 自适应画质 ---------------- */
+    QUALITY: [
+      { renderScale: 1.0, shadows: true, bloom: true, fxaa: true, shadowSize: 2048, maxLights: 8, name: '高' },
+      { renderScale: 0.85, shadows: true, bloom: true, fxaa: true, shadowSize: 1536, maxLights: 8, name: '中高' },
+      { renderScale: 0.72, shadows: true, bloom: false, fxaa: true, shadowSize: 1024, maxLights: 6, name: '中' },
+      { renderScale: 0.58, shadows: false, bloom: true, fxaa: true, shadowSize: 1024, maxLights: 4, name: '低' },
+      { renderScale: 0.45, shadows: false, bloom: false, fxaa: false, shadowSize: 512, maxLights: 3, name: '最低' },
+    ],
+    qLevel: 0,
+    qManual: false,
+
+    applyQuality(level, quiet) {
+      const q = this.QUALITY[clamp(level, 0, this.QUALITY.length - 1)];
+      this.qLevel = clamp(level, 0, this.QUALITY.length - 1);
+      Object.assign(root.RENDER.quality, {
+        renderScale: q.renderScale, shadows: q.shadows, bloom: q.bloom, fxaa: q.fxaa,
+        maxLights: q.maxLights,
+      });
+      root.RENDER.setShadowSize(q.shadowSize);
+      this.onResize();
+      if (!quiet) root.UI.toast('检测到帧率偏低，已自动把画质降到「' + q.name + '」（Esc → 设置里可手动调整）', 'info');
+    },
+
+    /** 帧率过低时逐级降画质；用户手动改过设置后不再自动干预 */
+    autoQuality(dt) {
+      if (this.qManual || !this.started) return;
+      this.qT = (this.qT || 0) + dt;
+      this.qFrames = (this.qFrames || 0) + 1;
+      if (this.qT < 2.2) return;
+      const fps = this.qFrames / this.qT;
+      this.qT = 0; this.qFrames = 0;
+      if (this.qWarm === undefined) { this.qWarm = 0; }
+      if (this.qWarm < 1) { this.qWarm++; return; }   // 跳过首个统计窗口
+      if (fps < 26 && this.qLevel < this.QUALITY.length - 1) this.applyQuality(this.qLevel + 1);
+      else if (fps > 85 && this.qLevel > 0) this.applyQuality(this.qLevel - 1, true);
+    },
+
     /* ---------------- 主循环 ---------------- */
     frame(now) {
       const dtRaw = (now - this.last) / 1000;
       this.last = now;
-      const dt = Math.min(0.05, Math.max(0.0005, dtRaw));
-      this.fps = this.fps ? lerp(this.fps, 1 / dt, 0.08) : 1 / dt;
+      const dt = Math.min(0.1, Math.max(0.0005, dtRaw));
+      this.fps = this.fps ? lerp(this.fps, 1 / dt, 0.12) : 1 / dt;
+      this.autoQuality(dt);
 
       if (this.started) {
         const wasGround = this.player.onGround;
@@ -868,6 +906,10 @@
 
       // 当前目标零件高亮
       const cur = this.currentStep();
+      const nb = this.world.nodes.notebook;
+      const nbTarget = cur && cur.special === 'notebook';
+      nb.tint = nbTarget ? [0.95, 0.75, 0.25] : null;
+      nb.tintStrength = nbTarget ? 0.30 + Math.sin(now * 0.004) * 0.16 : 0;
       for (const id in this.world.parts) {
         const p = this.world.parts[id];
         const isTarget = cur && !cur.special && p.def.kind === cur.accept && p.state === 'shelf';

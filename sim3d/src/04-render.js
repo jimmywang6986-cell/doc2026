@@ -249,18 +249,28 @@ void main(){
       this.quad = root.GLU.fullscreenQuad(gl);
 
       this.shadow = root.GLU.makeShadowFBO(gl, 2048);
+      this.shadowSize = 2048;
       this.shadowVP = M4.create();
       this.view = M4.create();
       this.proj = M4.create();
       this.nrm = new Float32Array(9);
       this.size = [0, 0];
-      this.quality = { renderScale: 1, shadows: true, bloom: true, fxaa: true };
+      this.quality = { renderScale: 1, shadows: true, bloom: true, fxaa: true, maxLights: 8 };
       this.exposure = 1.0;
       this.flash = 0;
       this.desat = 0;
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
       gl.cullFace(gl.BACK);
+    },
+
+    setShadowSize(n) {
+      if (this.shadowSize === n) return;
+      const gl = this.gl;
+      gl.deleteTexture(this.shadow.tex);
+      gl.deleteFramebuffer(this.shadow.fbo);
+      this.shadow = root.GLU.makeShadowFBO(gl, n);
+      this.shadowSize = n;
     },
 
     resize(w, h) {
@@ -382,7 +392,17 @@ void main(){
       p.u1i('uShadowMap', 2);
       this.bindTex(2, this.shadow.tex);
 
-      const lights = scene.lights.filter((l) => l.on !== false).slice(0, 8);
+      // 低画质下只保留最近/最强的若干光源
+      let lights = scene.lights.filter((l) => l.on !== false && l.intensity > 0);
+      const maxL = Math.min(8, this.quality.maxLights || 8);
+      if (lights.length > maxL) {
+        const cp = cam.pos;
+        lights = lights.slice().sort((a, b) => {
+          const da = Math.hypot(a.pos[0] - cp[0], a.pos[1] - cp[1], a.pos[2] - cp[2]) / (a.intensity + 0.01);
+          const db = Math.hypot(b.pos[0] - cp[0], b.pos[1] - cp[1], b.pos[2] - cp[2]) / (b.intensity + 0.01);
+          return da - db;
+        }).slice(0, maxL);
+      }
       const lp = new Float32Array(32), lc = new Float32Array(32);
       lights.forEach((l, i) => {
         lp[i * 4] = l.pos[0]; lp[i * 4 + 1] = l.pos[1]; lp[i * 4 + 2] = l.pos[2]; lp[i * 4 + 3] = l.range;

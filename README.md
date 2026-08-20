@@ -4,7 +4,9 @@
 
 > 直接玩：下载并双击 **[`pc-build-simulator-3d.html`](pc-build-simulator-3d.html)**（推荐 Chrome / Edge / Firefox 新版本）。
 
-![装机中的机箱内部](docs/screenshot.png)
+![通电后的机箱内部](docs/screenshot.png)
+
+![在防静电垫上搭好的平台](docs/platform.png)
 
 ## 这是什么
 
@@ -83,5 +85,7 @@ node build.mjs                  # 重新生成根目录的 pc-build-simulator-3d
 ## 性能与兼容
 
 - 需要支持 WebGL2 的浏览器（Chrome / Edge / Firefox / Safari 16+）。
-- 独立显卡上通常远超 60 FPS；如果卡顿，按 `Esc` → 设置，把「渲染分辨率」降到 70%、关掉阴影或泛光即可。
-- 纯软件渲染（无 GPU 加速）也能跑，帧率会明显下降。
+- **自适应画质**：运行时会监测帧率，低于 26 FPS 会自动逐级降低渲染分辨率、阴影、泛光与光源数量，并提示一次；一旦你在设置里手动调过画质，就不再自动干预。
+- 独立显卡上通常远超 60 FPS。若想手动调整，按 `Esc` → 设置：渲染分辨率、阴影、泛光、FXAA、鼠标灵敏度、音效都可单独开关。
+- 纯软件渲染（无 GPU 加速的虚拟机）也能跑完全程，只是帧率会明显下降。
+- 移动位移按帧时间积分并做了分步碰撞，低帧率下不会变慢或穿墙。

@@ -9,7 +9,7 @@
     {
       id: 'mb', kind: 'mb', name: '主板', full: 'NOVA Z-990 GAMING (ATX)', cat: '主板',
       model: 'motherboard', movable: true,
-      shelf: [-3.86, 0.985, -1.55], shelfRot: [-PI / 2, 0.2, 0],
+      shelf: [-3.86, 0.985, -1.60], shelfRot: [-PI / 2, 0.2, 0],
       hold: { pos: [0.02, -0.20, -0.52], rot: [-1.15, 0.25, 0] },
       spec: ['板型 ATX（305 × 244 mm）', '插槽 LGA1851 · Z990 芯片组',
         '内存 4 × DDR5，最高 192GB', '扩展 PCIe 5.0 x16 + 两个 M.2', '供电 16+1+2 相，8 层 PCB'],
@@ -25,7 +25,7 @@
     },
     {
       id: 'cpu', kind: 'cpu', name: 'CPU 处理器', full: 'NOVA CORE X9-14900K', cat: '核心部件',
-      model: 'cpu', shelf: [-3.86, 0.972, -0.95], shelfRot: [-PI / 2, 0, 0],
+      model: 'cpu', shelf: [-3.86, 1.502, -1.70], shelfRot: [-PI / 2, 0, 0],
       hold: { pos: [0.09, -0.10, -0.26], rot: [-0.9, 0.3, 0] },
       spec: ['24 核 32 线程 · 睿频 5.8GHz', '插座 LGA1851（1851 个触点）',
         '三级缓存 36MB', '基础功耗 125W，睿频可达 253W', '内存控制器 DDR5-6400 原生'],
@@ -42,7 +42,7 @@
     {
       id: 'ram1', kind: 'ram', name: '内存条 ①', full: 'NOVA VENOM DDR5-6400 16GB', cat: '内存',
       model: 'ram', modelOpts: { color: [0.16, 0.17, 0.20], rgb: [0.45, 0.78, 1.0] },
-      shelf: [-3.86, 0.982, -0.55], shelfRot: [-PI / 2, 0.1, 0],
+      shelf: [-3.86, 1.512, -1.42], shelfRot: [-PI / 2, 0.1, 0],
       hold: { pos: [0.10, -0.11, -0.30], rot: [-0.4, 0.5, 0.3] },
       spec: ['DDR5-6400 CL30 · 16GB', '工作电压 1.35V（XMP）', '带宽 51.2 GB/s（单条）', '带铝合金马甲与 RGB 导光条'],
       lesson: {
@@ -58,7 +58,7 @@
     {
       id: 'ram2', kind: 'ram', name: '内存条 ②', full: 'NOVA VENOM DDR5-6400 16GB', cat: '内存',
       model: 'ram', modelOpts: { color: [0.16, 0.17, 0.20], rgb: [0.62, 0.55, 1.0] },
-      shelf: [-3.86, 0.982, -0.40], shelfRot: [-PI / 2, -0.1, 0],
+      shelf: [-3.86, 1.512, -1.27], shelfRot: [-PI / 2, -0.1, 0],
       hold: { pos: [0.10, -0.11, -0.30], rot: [-0.4, 0.5, 0.3] },
       spec: ['与 ①同一套装（同批次）', '双通道需两条同规格', 'CL30 时序 · 6400MT/s'],
       lesson: {
@@ -72,7 +72,7 @@
     },
     {
       id: 'm2', kind: 'm2', name: 'M.2 固态硬盘', full: 'NOVA SSD 2TB PCIe 5.0', cat: '存储',
-      model: 'ssdM2', shelf: [-3.86, 0.968, -0.15], shelfRot: [-PI / 2, 0, 0],
+      model: 'ssdM2', shelf: [-3.86, 1.498, -1.02], shelfRot: [-PI / 2, 0, 0],
       hold: { pos: [0.08, -0.09, -0.24], rot: [-1.0, 0.3, 0] },
       spec: ['M.2 2280 · PCIe 5.0 x4 · NVMe', '顺序读取 14000 MB/s', '2TB TLC + 独立缓存', '主控温度上限 70℃，需散热马甲'],
       lesson: {
@@ -87,7 +87,7 @@
     },
     {
       id: 'm2hs', kind: 'm2hs', name: 'M.2 散热马甲', full: '原装铝合金马甲 + 导热垫', cat: '存储',
-      model: 'm2Heatsink', shelf: [-3.86, 0.972, 0.05], shelfRot: [-PI / 2, 0.15, 0],
+      model: 'm2Heatsink', shelf: [-3.86, 1.502, -0.86], shelfRot: [-PI / 2, 0.15, 0],
       hold: { pos: [0.08, -0.09, -0.25], rot: [-1.0, 0.3, 0] },
       spec: ['铝合金鳍片 + 硅脂导热垫', '可降低主控温度 15~25℃'],
       lesson: {
@@ -100,7 +100,7 @@
     },
     {
       id: 'paste', kind: 'paste', name: '导热硅脂', full: 'TG-12 高导热硅脂 4g', cat: '耗材',
-      model: 'thermalPasteTube', shelf: [-3.86, 0.976, 0.30], shelfRot: [0, 0.4, 0],
+      model: 'thermalPasteTube', shelf: [-3.86, 1.506, -0.62], shelfRot: [0, 0.4, 0],
       hold: { pos: [0.11, -0.10, -0.26], rot: [0.1, -0.4, 0.5] },
       spec: ['导热系数 12.5 W/m·K', '非导电、不固化', '用量：中心一点，约黄豆大小'],
       lesson: {
@@ -115,7 +115,7 @@
     },
     {
       id: 'cooler', kind: 'cooler', name: 'CPU 散热器', full: 'NOVA FROST TOWER 6（6 热管风冷）', cat: '散热',
-      model: 'coolerBody', shelf: [-3.86, 0.965, 0.75], shelfRot: [0, 0.3, 0],
+      model: 'coolerBody', shelf: [-3.86, 0.965, -0.95], shelfRot: [0, 0.3, 0],
       hold: { pos: [0.06, -0.22, -0.46], rot: [0.0, 0.4, 0] },
       children: [
         { model: 'fanCpuFrame', pos: [0.0715, 0.11, 0.048], rot: [0, PI / 2, 0] },
@@ -134,7 +134,7 @@
     },
     {
       id: 'gpu', kind: 'gpu', name: '显卡', full: 'NOVA RTV-5080 16GB', cat: '核心部件',
-      model: 'gpuBody', shelf: [-3.86, 1.545, -1.25], shelfRot: [0, 0.15, 0],
+      model: 'gpuBody', shelf: [-3.84, 0.968, -0.20], shelfRot: [0, 0.15, 0],
       hold: { pos: [0.04, -0.20, -0.50], rot: [0.2, 0.5, 0] },
       children: [
         { model: 'fanGpuFrame', pos: [0.05, -0.0455, 0.055], rot: [PI / 2, 0, 0] },
@@ -170,7 +170,7 @@
     },
     {
       id: 'ssd', kind: 'ssd', name: 'SATA 固态硬盘', full: 'NOVA SATA SSD 1TB 2.5"', cat: '存储',
-      model: 'ssdSata', shelf: [-3.86, 1.502, -0.55], shelfRot: [0, 0.1, 0],
+      model: 'ssdSata', shelf: [-3.86, 1.502, -0.34], shelfRot: [0, 0.1, 0],
       hold: { pos: [0.09, -0.11, -0.28], rot: [0.1, 0.5, 0] },
       spec: ['2.5 英寸 · SATA 6Gb/s', '顺序读取 560 MB/s', '1TB · 用作游戏仓库盘'],
       lesson: {
@@ -184,7 +184,7 @@
     },
     {
       id: 'hdd', kind: 'hdd', name: '机械硬盘', full: 'NOVA ARCHIVE 8TB 7200rpm', cat: '存储',
-      model: 'hdd', shelf: [-3.86, 1.508, -0.15], shelfRot: [0, -0.1, 0],
+      model: 'hdd', shelf: [-3.86, 1.508, -0.08], shelfRot: [0, -0.1, 0],
       hold: { pos: [0.07, -0.13, -0.32], rot: [0.1, 0.4, 0] },
       spec: ['3.5 英寸 · 7200 转', '256MB 缓存 · SATA 6Gb/s', '8TB 冷数据存储', '工作时禁止搬动'],
       lesson: {
@@ -198,7 +198,7 @@
     },
     {
       id: 'fan1', kind: 'fan', name: '机箱风扇 ①', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.35], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.26], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['120 × 120 × 25 mm', '转速 500~1800rpm（PWM 4pin）', '风量 62 CFM · 噪音 22dBA', 'ARGB 导光环'],
@@ -214,7 +214,7 @@
     },
     {
       id: 'fan2', kind: 'fan', name: '机箱风扇 ②', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.55], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.46], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['与 ①同型号', '用于前面板第二进风位'],
@@ -227,7 +227,7 @@
     },
     {
       id: 'fan3', kind: 'fan', name: '机箱风扇 ③', full: '120mm ARGB PWM 风扇', cat: '散热',
-      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.75], shelfRot: [PI / 2, 0, 0],
+      model: 'fan120Frame', shelf: [-3.86, 1.555, 0.66], shelfRot: [PI / 2, 0, 0],
       hold: { pos: [0.09, -0.13, -0.30], rot: [0.2, 0.4, 0] },
       children: [{ model: 'fan120Rotor', pos: [0, 0, 0], rot: [0, 0, 0], spin: 2, speedIdle: 0 }],
       spec: ['与 ①同型号', '用于机箱后部排风位'],
@@ -282,7 +282,7 @@
     {
       id: 'c24', kind: 'c24', name: '24pin 主板供电线', full: 'ATX 24-pin 主供电', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.052, pins: 12, strands: 8, color: [0.07, 0.07, 0.08] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -1.3], shelfRot: [0, 0.3, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -1.30], shelfRot: [0, 0.3, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['24 针（20+4）· 主板全域供电', '提供 +12V / +5V / +3.3V 与 PS_ON 信号'],
       lesson: {
@@ -296,7 +296,7 @@
     {
       id: 'ceps', kind: 'ceps', name: 'CPU 供电线 (EPS 8pin)', full: 'EPS12V 8-pin', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.030, pins: 8, strands: 5, color: [0.07, 0.07, 0.08] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -1.0], shelfRot: [0, -0.2, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -1.00], shelfRot: [0, -0.2, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['8 针 · 纯 +12V', '单口可承载约 300W'],
       lesson: {
@@ -311,7 +311,7 @@
     {
       id: 'cpcie', kind: 'cpcie', name: '显卡供电线 (PCIe 8pin)', full: 'PCIe 8-pin (6+2)', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.030, pins: 8, strands: 5, color: [0.08, 0.08, 0.09] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.7], shelfRot: [0, 0.15, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.70], shelfRot: [0, 0.15, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['6+2 针可拆设计', '单口 150W（ATX 3.0 起可短时更高）'],
       lesson: {
@@ -326,7 +326,7 @@
     {
       id: 'csata', kind: 'csata', name: 'SATA 供电 + 数据线', full: 'SATA 15pin 电源 + 7pin 数据', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.024, pins: 7, strands: 4, color: [0.06, 0.10, 0.18] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.4], shelfRot: [0, -0.25, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.40], shelfRot: [0, -0.25, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['15pin 供电（+12V/+5V/+3.3V）', '7pin 数据 · 6Gb/s'],
       lesson: {
@@ -341,7 +341,7 @@
     {
       id: 'cfp', kind: 'cfp', name: '前面板控制线', full: 'F_PANEL + USB3.0 + HD_AUDIO', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.020, pins: 9, strands: 7, color: [0.10, 0.10, 0.11] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, -0.1], shelfRot: [0, 0.2, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, -0.10], shelfRot: [0, 0.2, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['POWER SW / RESET SW / HDD LED / POWER LED', 'USB3.0 19pin · HD_AUDIO 9pin'],
       lesson: {
@@ -357,7 +357,7 @@
     {
       id: 'cfan', kind: 'cfan', name: '风扇集线器与风扇线', full: 'PWM HUB + 4pin 风扇线', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.018, pins: 4, strands: 4, color: [0.06, 0.06, 0.07] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, 0.2], shelfRot: [0, -0.15, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, 0.20], shelfRot: [0, -0.15, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['4pin PWM · 支持温控曲线', 'HUB 汇总多把风扇到一个主板接口'],
       lesson: {
@@ -372,7 +372,7 @@
     {
       id: 'cext', kind: 'cext', name: '外设线材套装', full: 'DP 1.4 线 + 键鼠 USB + 电源线', cat: '线材',
       model: 'cableCoil', modelOpts: { w: 0.026, pins: 6, strands: 5, color: [0.05, 0.05, 0.06] },
-      installModel: 'cableRun', shelf: [-3.86, 1.99, 0.5], shelfRot: [0, 0.25, 0],
+      installModel: 'cableRun', shelf: [-3.86, 2.01, 0.50], shelfRot: [0, 0.25, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['DisplayPort 1.4 · 支持 2K 165Hz', '键鼠 USB-A', 'C13 市电线'],
       lesson: {
@@ -386,7 +386,7 @@
     },
     {
       id: 'antenna', kind: 'antenna', name: 'Wi-Fi 天线', full: '双频磁吸外置天线', cat: '网络',
-      model: 'wifiAntenna', shelf: [-3.86, 1.99, 0.8], shelfRot: [0, 0.1, 0],
+      model: 'wifiAntenna', shelf: [-3.86, 2.01, 0.80], shelfRot: [0, 0.1, 0],
       hold: { pos: [0.11, -0.12, -0.28], rot: [0.2, 0.3, 0] },
       spec: ['Wi-Fi 7 双频 · 磁吸底座', '接主板后置 SMA 接口'],
       lesson: {
