@@ -687,6 +687,52 @@
       mb.box(m(MAT.fabric, { at: [0, 0.013, 0], size: [w - 0.16, 0.004, d - 0.16], uv: 3, color: opt.color2 || [0.22, 0.20, 0.26] }));
     },
 
+    /** 地面工作区警示线 */
+    floorTape(mb, opt) {
+      const w = opt.w, d = opt.d, t = 0.06;
+      const y = 0.004;
+      const strip = (x, z, sx, sz) => {
+        mb.box(m(MAT.paint, { at: [x, y, z], size: [sx, 0.008, sz], color: [0.85, 0.68, 0.10], rough: 0.6 }));
+      };
+      strip(0, -d / 2, w, t);
+      strip(0, d / 2, w, t);
+      strip(-w / 2, 0, t, d);
+      strip(w / 2, 0, t, d);
+      // 斜纹
+      for (let x = -w / 2 + 0.12; x < w / 2 - 0.05; x += 0.24) {
+        mb.pushTRS([x, 0, -d / 2], [0, 0.7, 0]);
+        mb.box(m(MAT.paint, { at: [0, y + 0.002, 0], size: [0.05, 0.008, 0.09], color: [0.12, 0.12, 0.13], rough: 0.7 }));
+        mb.pop();
+      }
+    },
+
+    /** 彩盒堆（零售包装） */
+    boxStack(mb) {
+      const cols = [[0.16, 0.34, 0.62], [0.62, 0.20, 0.22], [0.18, 0.46, 0.38], [0.44, 0.30, 0.60]];
+      let y = 0;
+      for (let i = 0; i < 4; i++) {
+        const w = 0.44 - i * 0.03, h = 0.13 + (i % 2) * 0.04, d = 0.36 - i * 0.02;
+        mb.pushTRS([((i % 2) - 0.5) * 0.05, y + h / 2, ((i % 3) - 1) * 0.03], [0, (i % 2 ? 1 : -1) * 0.09, 0]);
+        mb.box(m(MAT.plastic, { at: [0, 0, 0], size: [w, h, d], color: cols[i], rough: 0.55 }));
+        mb.box(m(MAT.plasticWhite, { at: [0, 0, d / 2 + 0.001], size: [w * 0.7, h * 0.45, 0.003], color: [0.92, 0.92, 0.90] }));
+        mb.box(m(MAT.paint, { at: [0, h / 2 + 0.001, 0], size: [w * 0.5, 0.003, d * 0.5], color: [0.85, 0.85, 0.86] }));
+        mb.pop();
+        y += h;
+      }
+    },
+
+    /** 易拉宝展架 */
+    banner(mb, opt) {
+      mb.box(m(MAT.steelDark, { at: [0, 0.03, 0], size: [0.72, 0.06, 0.24], color: [0.20, 0.21, 0.24] }));
+      mb.cyl(m(MAT.steel, { at: [0, 1.05, -0.06], axis: 'y', r: 0.012, h: 2.0, segs: 8 }));
+      mb.box(m(MAT.plasticWhite, { at: [0, 1.10, 0], size: [0.76, 1.90, 0.008], color: [0.95, 0.95, 0.94] }));
+      mb.quad({
+        tex: opt.tex, color: [1, 1, 1], rough: 0.5, metal: 0,
+        points: [[-0.37, 0.18, 0.006], [0.37, 0.18, 0.006], [0.37, 2.0, 0.006], [-0.37, 2.0, 0.006]],
+        normal: [0, 0, 1],
+      });
+    },
+
     /** 壁挂电视（播放宣传画面） */
     wallTV(mb, opt) {
       const w = (opt && opt.w) || 1.30, h = (opt && opt.h) || 0.76;

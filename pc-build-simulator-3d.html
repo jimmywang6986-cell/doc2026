@@ -2671,6 +2671,52 @@ void main(){
       mb.box(m(MAT.fabric, { at: [0, 0.013, 0], size: [w - 0.16, 0.004, d - 0.16], uv: 3, color: opt.color2 || [0.22, 0.20, 0.26] }));
     },
 
+    /** 地面工作区警示线 */
+    floorTape(mb, opt) {
+      const w = opt.w, d = opt.d, t = 0.06;
+      const y = 0.004;
+      const strip = (x, z, sx, sz) => {
+        mb.box(m(MAT.paint, { at: [x, y, z], size: [sx, 0.008, sz], color: [0.85, 0.68, 0.10], rough: 0.6 }));
+      };
+      strip(0, -d / 2, w, t);
+      strip(0, d / 2, w, t);
+      strip(-w / 2, 0, t, d);
+      strip(w / 2, 0, t, d);
+      // 斜纹
+      for (let x = -w / 2 + 0.12; x < w / 2 - 0.05; x += 0.24) {
+        mb.pushTRS([x, 0, -d / 2], [0, 0.7, 0]);
+        mb.box(m(MAT.paint, { at: [0, y + 0.002, 0], size: [0.05, 0.008, 0.09], color: [0.12, 0.12, 0.13], rough: 0.7 }));
+        mb.pop();
+      }
+    },
+
+    /** 彩盒堆（零售包装） */
+    boxStack(mb) {
+      const cols = [[0.16, 0.34, 0.62], [0.62, 0.20, 0.22], [0.18, 0.46, 0.38], [0.44, 0.30, 0.60]];
+      let y = 0;
+      for (let i = 0; i < 4; i++) {
+        const w = 0.44 - i * 0.03, h = 0.13 + (i % 2) * 0.04, d = 0.36 - i * 0.02;
+        mb.pushTRS([((i % 2) - 0.5) * 0.05, y + h / 2, ((i % 3) - 1) * 0.03], [0, (i % 2 ? 1 : -1) * 0.09, 0]);
+        mb.box(m(MAT.plastic, { at: [0, 0, 0], size: [w, h, d], color: cols[i], rough: 0.55 }));
+        mb.box(m(MAT.plasticWhite, { at: [0, 0, d / 2 + 0.001], size: [w * 0.7, h * 0.45, 0.003], color: [0.92, 0.92, 0.90] }));
+        mb.box(m(MAT.paint, { at: [0, h / 2 + 0.001, 0], size: [w * 0.5, 0.003, d * 0.5], color: [0.85, 0.85, 0.86] }));
+        mb.pop();
+        y += h;
+      }
+    },
+
+    /** 易拉宝展架 */
+    banner(mb, opt) {
+      mb.box(m(MAT.steelDark, { at: [0, 0.03, 0], size: [0.72, 0.06, 0.24], color: [0.20, 0.21, 0.24] }));
+      mb.cyl(m(MAT.steel, { at: [0, 1.05, -0.06], axis: 'y', r: 0.012, h: 2.0, segs: 8 }));
+      mb.box(m(MAT.plasticWhite, { at: [0, 1.10, 0], size: [0.76, 1.90, 0.008], color: [0.95, 0.95, 0.94] }));
+      mb.quad({
+        tex: opt.tex, color: [1, 1, 1], rough: 0.5, metal: 0,
+        points: [[-0.37, 0.18, 0.006], [0.37, 0.18, 0.006], [0.37, 2.0, 0.006], [-0.37, 2.0, 0.006]],
+        normal: [0, 0, 1],
+      });
+    },
+
     /** 壁挂电视（播放宣传画面） */
     wallTV(mb, opt) {
       const w = (opt && opt.w) || 1.30, h = (opt && opt.h) || 0.76;
@@ -3568,6 +3614,21 @@ void main(){
         const x = (i * 71) % w, y = h - 12 - ((i * 37) % 170);
         if ((i * 13) % 5 === 0) ctx.fillRect(x, y, 4, 6);
       }
+    });
+
+    L('bannerAd', 384, 960, (ctx, w, h) => {
+      const g = grad(ctx, 0, 0, 0, h, [[0, '#0d1b34'], [0.55, '#14406b'], [1, '#0a1120']]);
+      rect(ctx, 0, 0, w, h, g);
+      ctx.textAlign = 'center';
+      text(ctx, '星海电脑', w / 2, 130, F(64), '#ffffff', 'center');
+      text(ctx, '整机定制 · 装机服务', w / 2, 186, F(30), '#7fd8ff', 'center');
+      rect(ctx, 52, 226, w - 104, 3, '#2f7fb8');
+      const items = ['· 免费装机指导', '· 原厂质保 3 年', '· 上门维修', '· 数据恢复', '· 二手回收'];
+      items.forEach((t, i) => text(ctx, t, 66, 300 + i * 62, F(30), '#d8e8f8', 'left'));
+      rect(ctx, 60, 640, w - 120, 190, 'rgba(255,255,255,0.07)');
+      text(ctx, 'NOVA', w / 2, 720, F(58), '#8fe3ff', 'center');
+      text(ctx, 'X9 平台', w / 2, 782, F(38), '#ffd580', 'center');
+      text(ctx, '营业时间 09:00 - 21:00', w / 2, 900, F(26), '#9fb6cc', 'center');
     });
 
     L('tvAd', 768, 448, (ctx, w, h) => {
@@ -4480,6 +4541,10 @@ void main(){
       n.emisMul = 0.45;
     }
     add('wallTV', M('wallTV', { tex: 'label:tvAd', w: 1.4, h: 0.82 }), [-1.30, 1.80, 3.37], [0, PI, 0]);
+    add('tape', M('floorTape', { w: 5.6, d: 1.9 }), [-1.05, 0, -2.15]);
+    add('boxes1', M('boxStack'), [-3.55, 0, -0.35], [0, 0.3, 0]);
+    add('boxes2', M('boxStack'), [3.55, 0, 1.30], [0, -0.45, 0]);
+    add('banner', M('banner', { tex: 'label:bannerAd' }), [1.55, 0, 3.16], [0, PI, 0]);
     add('displayCase', M('displayCase'), [-3.55, 0, 3.15], [0, 0.55, 0]);
     add('sofa', M('sofa'), [1.15, 0, 2.95], [0, PI, 0]);
     add('coffeeTable', M('coffeeTable'), [1.15, 0, 2.05], [0, 0, 0]);
@@ -4551,6 +4616,8 @@ void main(){
       box(-3.40, 0, -2.60, -2.70, 0.75, -2.10), // 工具车
       box(-4.16, 0, 0.55, -3.80, 0.92, 1.62),   // 备用机箱堆
       box(1.72, 0, -2.72, 2.08, 0.35, -2.38),   // 垃圾桶
+      box(-3.80, 0, -0.58, -3.30, 0.60, -0.12), // 彩盒堆
+      box(3.30, 0, 1.05, 3.80, 0.60, 1.55),     // 彩盒堆 2
       box(-4.00, 0, 2.75, -2.95, 2.00, 3.60),   // 展示柜
       box(0.20, 0, 2.50, 2.10, 0.90, 3.45),     // 沙发
       box(0.70, 0, 1.78, 1.60, 0.45, 2.32),     // 茶几
@@ -5971,13 +6038,15 @@ void main(){
         pos = (step.installOpts || step.externalCables) ? [0, 0, 0] : step.anchor.pos.slice();
         rot = (step.anchor.rot || [0, 0, 0]).slice();
         g.tint = [0.35, 0.95, 1.0];
+        g.tintStrength = 0.55;
       } else {
         const h = this.homeOf(this.held);
         model = h.model || root.MODELS.get(def.model, def.modelOpts);
         parent = this.resolveParent(h.parentName);
         pos = h.pos.slice();
         rot = h.rot.slice();
-        g.tint = [1.0, 0.78, 0.32];
+        g.tint = [1.0, 0.70, 0.24];
+        g.tintStrength = 1.9;
       }
       g.model = model;
       if (g.parent !== parent) parent.add(g);

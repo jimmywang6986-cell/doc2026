@@ -572,13 +572,15 @@
         pos = (step.installOpts || step.externalCables) ? [0, 0, 0] : step.anchor.pos.slice();
         rot = (step.anchor.rot || [0, 0, 0]).slice();
         g.tint = [0.35, 0.95, 1.0];
+        g.tintStrength = 0.55;
       } else {
         const h = this.homeOf(this.held);
         model = h.model || root.MODELS.get(def.model, def.modelOpts);
         parent = this.resolveParent(h.parentName);
         pos = h.pos.slice();
         rot = h.rot.slice();
-        g.tint = [1.0, 0.78, 0.32];
+        g.tint = [1.0, 0.70, 0.24];
+        g.tintStrength = 1.9;
       }
       g.model = model;
       if (g.parent !== parent) parent.add(g);

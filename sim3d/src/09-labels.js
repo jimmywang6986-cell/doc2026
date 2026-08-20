@@ -243,6 +243,21 @@
       }
     });
 
+    L('bannerAd', 384, 960, (ctx, w, h) => {
+      const g = grad(ctx, 0, 0, 0, h, [[0, '#0d1b34'], [0.55, '#14406b'], [1, '#0a1120']]);
+      rect(ctx, 0, 0, w, h, g);
+      ctx.textAlign = 'center';
+      text(ctx, '星海电脑', w / 2, 130, F(64), '#ffffff', 'center');
+      text(ctx, '整机定制 · 装机服务', w / 2, 186, F(30), '#7fd8ff', 'center');
+      rect(ctx, 52, 226, w - 104, 3, '#2f7fb8');
+      const items = ['· 免费装机指导', '· 原厂质保 3 年', '· 上门维修', '· 数据恢复', '· 二手回收'];
+      items.forEach((t, i) => text(ctx, t, 66, 300 + i * 62, F(30), '#d8e8f8', 'left'));
+      rect(ctx, 60, 640, w - 120, 190, 'rgba(255,255,255,0.07)');
+      text(ctx, 'NOVA', w / 2, 720, F(58), '#8fe3ff', 'center');
+      text(ctx, 'X9 平台', w / 2, 782, F(38), '#ffd580', 'center');
+      text(ctx, '营业时间 09:00 - 21:00', w / 2, 900, F(26), '#9fb6cc', 'center');
+    });
+
     L('tvAd', 768, 448, (ctx, w, h) => {
       const g = grad(ctx, 0, 0, w, h, [[0, '#0b1a2e'], [0.5, '#123a5c'], [1, '#2a1146']]);
       rect(ctx, 0, 0, w, h, g);
