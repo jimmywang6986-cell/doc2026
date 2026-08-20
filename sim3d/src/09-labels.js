@@ -207,6 +207,115 @@
       rect(ctx, 0, 0, w, h, '#0d1117');
     });
 
+    L('skyline', 1024, 320, (ctx, w, h) => {
+      const sky = grad(ctx, 0, 0, 0, h, [[0, '#8fb6e8'], [0.45, '#cfe0f2'], [0.78, '#f3d9bd'], [1, '#e8bf9a']]);
+      rect(ctx, 0, 0, w, h, sky);
+      // 云
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      for (let i = 0; i < 14; i++) {
+        const cx = (i * 137) % w, cy = 20 + (i * 53) % 70, r = 18 + (i % 4) * 12;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r * 2.2, r * 0.7, 0, 0, 7);
+        ctx.fill();
+      }
+      // 远景楼群（两层，近处更深）
+      const band = (baseY, colr, seed, minH, maxH) => {
+        ctx.fillStyle = colr;
+        let x = -20;
+        let n = seed;
+        while (x < w + 40) {
+          n = (n * 9301 + 49297) % 233280;
+          const r = n / 233280;
+          const bw = 26 + r * 58;
+          const bh = minH + ((n >> 4) % 100) / 100 * (maxH - minH);
+          ctx.fillRect(x, baseY - bh, bw, bh);
+          if (r > 0.7) ctx.fillRect(x + bw * 0.35, baseY - bh - 22, bw * 0.3, 22);
+          x += bw + 6 + r * 10;
+        }
+      };
+      band(h, 'rgba(120,140,168,0.55)', 7, 60, 150);
+      band(h, 'rgba(72,88,112,0.85)', 91, 80, 200);
+      // 窗户灯光
+      ctx.fillStyle = 'rgba(255,226,160,0.75)';
+      for (let i = 0; i < 420; i++) {
+        const x = (i * 71) % w, y = h - 12 - ((i * 37) % 170);
+        if ((i * 13) % 5 === 0) ctx.fillRect(x, y, 4, 6);
+      }
+    });
+
+    L('tvAd', 768, 448, (ctx, w, h) => {
+      const g = grad(ctx, 0, 0, w, h, [[0, '#0b1a2e'], [0.5, '#123a5c'], [1, '#2a1146']]);
+      rect(ctx, 0, 0, w, h, g);
+      ctx.textAlign = 'left';
+      text(ctx, '星海电脑 · 整机定制', 46, 92, F(50), '#8fe3ff');
+      text(ctx, 'NOVA X9 平台 · 高刷电竞', 46, 148, F(30), '#cfe6ff');
+      // 柱状跑分图
+      const bars = [[0.55, '#3fa7ff', '上代'], [0.78, '#5be0a0', '本机'], [0.42, '#ffb45b', '入门']];
+      bars.forEach((b, i) => {
+        const bh = b[0] * 190;
+        const x = 90 + i * 150;
+        rect(ctx, x, 380 - bh, 92, bh, b[1]);
+        text(ctx, b[2], x + 12, 410, F(24), '#9fb6cc');
+      });
+      rect(ctx, 560, 190, 160, 190, 'rgba(255,255,255,0.06)');
+      text(ctx, '4K', 596, 268, F(58), '#ffffff');
+      text(ctx, '144Hz', 578, 330, F(34), '#7ff0ff');
+      rect(ctx, 0, h - 42, w, 42, 'rgba(4,10,18,0.7)');
+      text(ctx, '装机 · 维修 · 数据恢复    营业中', 40, h - 12, F(26), '#ffd580');
+    });
+
+    L('neonRepair', 512, 256, (ctx, w, h) => {
+      rect(ctx, 0, 0, w, h, '#05060a');
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#ff3d7f';
+      ctx.shadowBlur = 26;
+      text(ctx, '维 修', w / 2, 150, F(110), '#ff86b5', 'center');
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ff4f8b';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(28, 28, w - 56, h - 56);
+      text(ctx, '24H', w / 2, 210, F(34), '#7ff0ff', 'center');
+    });
+
+    L('photoGrandpa', 420, 320, (ctx, w, h) => {
+      const g = grad(ctx, 0, 0, 0, h, [[0, '#c9b28a'], [1, '#8f7655']]);
+      rect(ctx, 0, 0, w, h, g);
+      rect(ctx, 0, h - 54, w, 54, 'rgba(20,16,12,0.55)');
+      // 简笔画：老人 + 一台主机
+      ctx.fillStyle = '#5a4632';
+      ctx.beginPath(); ctx.arc(150, 130, 42, 0, 7); ctx.fill();
+      ctx.fillRect(108, 178, 84, 96);
+      ctx.fillStyle = '#3f3a34';
+      ctx.fillRect(250, 150, 96, 124);
+      ctx.fillStyle = '#6f8fa8';
+      ctx.fillRect(262, 166, 72, 30);
+      text(ctx, '1998 · 开店那天', w / 2, h - 18, F(26), '#f0e6d6', 'center');
+    });
+
+    L('calendar', 320, 420, (ctx, w, h) => {
+      rect(ctx, 0, 0, w, h, '#f6f4ef');
+      rect(ctx, 0, 0, w, 92, '#c0392b');
+      ctx.textAlign = 'center';
+      text(ctx, '2026 年 8 月', w / 2, 62, F(38), '#ffffff', 'center');
+      ctx.font = F(22, false);
+      const days = ['日', '一', '二', '三', '四', '五', '六'];
+      days.forEach((d, i) => text(ctx, d, 26 + i * 45, 128, F(20), '#8a8f96', 'center'));
+      let day = 1;
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 7; c++) {
+          if (day > 31) break;
+          const x = 26 + c * 45, y = 168 + r * 46;
+          if (day === 20) {
+            ctx.fillStyle = '#c0392b';
+            ctx.beginPath(); ctx.arc(x, y - 7, 18, 0, 7); ctx.fill();
+          }
+          text(ctx, String(day), x, y, F(21, false), day === 20 ? '#fff' : '#2c3038', 'center');
+          day++;
+        }
+      }
+      text(ctx, '今日：交付柯小雨的机器', w / 2, 400, F(19), '#7a5b3a', 'center');
+    });
+
     /** 货架零件标签（按名称动态生成） */
     root.LABELS = {
       partPlate(name, sub) {

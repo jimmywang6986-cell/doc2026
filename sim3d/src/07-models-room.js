@@ -132,9 +132,14 @@
       mb.box(m(frame, { at: [x - 0.02, 1.65, -2.70], size: [0.1, 1.2, 0.07] }));
       mb.box(m(frame, { at: [x - 0.02, 1.65, 1.40], size: [0.1, 1.2, 0.07] }));
       mb.box(m(frame, { at: [x - 0.02, 1.65, -0.65], size: [0.09, 1.2, 0.05] }));
-      // 窗玻璃 + 窗外天光
+      // 窗玻璃 + 窗外城市天际线
       mb.box(m(MAT.glass, { at: [x - 0.01, 1.65, -0.65], size: [0.02, 1.16, 4.04] }));
-      mb.box(m(MAT.sky, { at: [x + 0.22, 1.65, -0.65], size: [0.02, 1.14, 4.0] }));
+      mb.quad({
+        tex: 'label:skyline', color: [1, 1, 1], rough: 1, metal: 0, emis: 0.95,
+        points: [[x + 0.9, 1.08, -2.65], [x + 0.9, 1.08, 1.35], [x + 0.9, 2.22, 1.35], [x + 0.9, 2.22, -2.65]],
+        normal: [-1, 0, 0],
+      });
+      mb.box(m(MAT.sky, { at: [x + 1.0, 1.65, -0.65], size: [0.02, 1.3, 4.4], emis: 1.0, color: [0.72, 0.82, 1.0] }));
       // 踢脚线
       mb.box(m(MAT.woodDark, { at: [0, 0.06, -z + 0.03], size: [x * 2, 0.12, 0.03] }));
       mb.box(m(MAT.woodDark, { at: [-x + 0.03, 0.06, 0], size: [0.03, 0.12, z * 2] }));
@@ -378,6 +383,321 @@
         normal: [0, 0, 1], color: [1, 1, 1], rough: 0.7,
       });
       mb.box(m(MAT.woodDark, { at: [0, 0, -0.009], size: [opt.w + 0.02, opt.h + 0.02, 0.012] }));
+    },
+
+    /**
+     * 第一人称手（局部：掌心在原点，手指指向 -Z，+X 为拇指侧）
+     * opt.side: 1 = 右手, -1 = 左手；opt.grip: 0 松弛 1 握持
+     */
+    hand(mb, opt) {
+      const side = opt && opt.side === -1 ? -1 : 1;
+      const grip = opt && opt.grip != null ? opt.grip : 0;
+      const skin = { tex: 'paint', color: [0.62, 0.44, 0.34], rough: 0.88, metal: 0 };
+      const skinDark = m(skin, { color: [0.55, 0.38, 0.29] });
+      const sleeve = { tex: 'fabric', color: [0.26, 0.36, 0.52], rough: 0.92, metal: 0 };
+
+      // 袖口与小臂
+      mb.box(m(sleeve, { at: [0, 0.004, 0.145], size: [0.088, 0.082, 0.20], uv: 6 }));
+      mb.box(m(sleeve, { at: [0, 0.004, 0.052], size: [0.095, 0.090, 0.030], uv: 6, color: [0.20, 0.29, 0.44] }));
+      // 手腕 + 手掌
+      mb.box(m(skin, { at: [0, 0.002, 0.030], size: [0.070, 0.058, 0.030] }));
+      mb.box(m(skin, { at: [0, 0, -0.028], size: [0.082, 0.048, 0.088] }));
+      // 四指（两节，握持时向内弯）
+      const bend = 0.30 + grip * 1.15;
+      for (let i = 0; i < 4; i++) {
+        const x = side * (-0.030 + i * 0.020);
+        const len = i === 3 ? 0.040 : 0.048;
+        mb.pushTRS([x, -0.004, -0.072], [bend * 0.55, 0, 0]);
+        mb.box(m(skin, { at: [0, 0, -len / 2], size: [0.019, 0.021, len] }));
+        mb.pushTRS([0, 0, -len], [bend * 0.85, 0, 0]);
+        mb.box(m(skinDark, { at: [0, 0, -0.020], size: [0.018, 0.019, 0.040] }));
+        mb.pop();
+        mb.pop();
+      }
+      // 拇指
+      mb.pushTRS([side * 0.044, -0.004, -0.014], [0.15, side * 0.55, side * -0.35]);
+      mb.box(m(skin, { at: [0, 0, -0.024], size: [0.024, 0.024, 0.048] }));
+      mb.pushTRS([0, 0, -0.048], [0.1 + grip * 0.7, 0, 0]);
+      mb.box(m(skinDark, { at: [0, 0, -0.017], size: [0.022, 0.021, 0.034] }));
+      mb.pop();
+      mb.pop();
+    },
+
+    /* ---------------- 店内装饰 ---------------- */
+    /** 工具挂板（洞洞板 + 挂着的工具） */
+    pegboard(mb) {
+      mb.box(m(MAT.wood, { at: [0, 0, 0], size: [1.5, 0.62, 0.018], uv: 2.5, color: [0.72, 0.62, 0.5] }));
+      mb.box(m(MAT.woodDark, { at: [0, 0.315, 0.004], size: [1.54, 0.03, 0.03] }));
+      mb.box(m(MAT.woodDark, { at: [0, -0.315, 0.004], size: [1.54, 0.03, 0.03] }));
+      for (let x = -0.68; x <= 0.68; x += 0.062) {
+        for (let y = -0.26; y <= 0.27; y += 0.062) {
+          mb.cyl(m(MAT.plastic, { at: [x, y, 0.010], axis: 'z', r: 0.006, h: 0.004, segs: 6, color: [0.05, 0.05, 0.05] }));
+        }
+      }
+      // 挂钩上的工具
+      const tool = (x, y, w, h, col, r) => {
+        mb.box(m(MAT.plastic, { at: [x, y, 0.028], size: [w, h, 0.022], color: col, rough: r != null ? r : 0.5 }));
+      };
+      for (let i = 0; i < 5; i++) {
+        tool(-0.62 + i * 0.062, 0.14, 0.020, 0.16, [0.85, 0.42, 0.08]);
+        mb.cyl(m(MAT.steel, { at: [-0.62 + i * 0.062, -0.02, 0.028], axis: 'y', r: 0.005, h: 0.12, segs: 8 }));
+      }
+      tool(-0.20, 0.10, 0.05, 0.20, [0.20, 0.22, 0.26], 0.35);   // 钳子
+      tool(-0.08, 0.10, 0.05, 0.20, [0.55, 0.15, 0.12], 0.4);
+      tool(0.06, 0.14, 0.12, 0.11, [0.25, 0.27, 0.30], 0.35);    // 扳手
+      mb.cyl(m(MAT.plastic, { at: [0.28, 0.10, 0.03], axis: 'z', r: 0.055, h: 0.030, segs: 20, color: [0.85, 0.75, 0.25] })); // 胶带
+      mb.cyl(m(MAT.plastic, { at: [0.28, 0.10, 0.032], axis: 'z', r: 0.018, h: 0.032, segs: 14, color: [0.15, 0.15, 0.16] }));
+      // 零件盒
+      for (let i = 0; i < 4; i++) {
+        mb.box(m(MAT.plastic, {
+          at: [-0.60 + i * 0.17, -0.20, 0.06], size: [0.15, 0.10, 0.10],
+          color: [0.55, 0.58, 0.62], rough: 0.45, transparent: true, alpha: 0.72,
+        }));
+        mb.box(m(MAT.plastic, { at: [-0.60 + i * 0.17, -0.24, 0.111], size: [0.09, 0.03, 0.002], color: [0.9, 0.9, 0.88] }));
+      }
+      tool(0.50, -0.18, 0.14, 0.10, [0.15, 0.16, 0.18], 0.4);
+      tool(0.50, 0.12, 0.09, 0.18, [0.30, 0.60, 0.35], 0.5);
+    },
+
+    /** 线材卷架 */
+    spoolRack(mb) {
+      mb.box(m(MAT.steelDark, { at: [0, 0, 0], size: [0.9, 0.05, 0.05] }));
+      for (let i = 0; i < 4; i++) {
+        const x = -0.33 + i * 0.22;
+        mb.cyl(m(MAT.steel, { at: [x, -0.10, 0], axis: 'y', r: 0.006, h: 0.16, segs: 8 }));
+        const col = [[0.10, 0.10, 0.11], [0.55, 0.12, 0.10], [0.12, 0.35, 0.55], [0.85, 0.80, 0.20]][i];
+        for (let t = 0; t < 7; t++) {
+          mb.cyl(m(MAT.rubber, {
+            at: [x, -0.14 - t * 0.008, 0], axis: 'y', r: 0.055 - Math.abs(t - 3) * 0.004,
+            h: 0.008, segs: 16, color: col,
+          }));
+        }
+      }
+    },
+
+    /** 备用机箱（堆叠） */
+    spareCase(mb) {
+      mb.box(m(MAT.steelDark, { at: [0, 0.22, 0], size: [0.42, 0.44, 0.20], uv: 2, color: [0.13, 0.135, 0.15] }));
+      mb.box(m(MAT.mesh, { at: [0.212, 0.22, 0], size: [0.004, 0.36, 0.16], uv: 6 }));
+      mb.box(m(MAT.plastic, { at: [0, 0.445, 0], size: [0.40, 0.012, 0.19], color: [0.10, 0.10, 0.11] }));
+      mb.box(m(MAT.paper, { at: [-0.212, 0.28, 0.04], size: [0.002, 0.10, 0.07], color: [0.9, 0.88, 0.8] }));
+    },
+
+    /** 老式 CRT 显示器（爷爷的收藏） */
+    crt(mb) {
+      mb.box(m(MAT.plasticWhite, { at: [0, 0.16, 0], size: [0.38, 0.32, 0.36], color: [0.72, 0.70, 0.62], rough: 0.6 }));
+      mb.box(m(MAT.plasticWhite, { at: [0, 0.16, 0.185], size: [0.34, 0.28, 0.02], color: [0.66, 0.64, 0.57] }));
+      mb.box(m(MAT.plastic, { at: [0, 0.17, 0.196], size: [0.28, 0.22, 0.006], color: [0.06, 0.07, 0.07], rough: 0.2 }));
+      mb.box(m(MAT.plasticWhite, { at: [0, 0.02, 0], size: [0.34, 0.04, 0.32], color: [0.68, 0.66, 0.59] }));
+      mb.cyl(m(MAT.plastic, { at: [0.12, 0.03, 0.19], axis: 'z', r: 0.012, h: 0.01, segs: 12, color: [0.3, 0.3, 0.3] }));
+    },
+
+    /** 工具车 */
+    cart(mb) {
+      const s = m(MAT.steelDark, { color: [0.22, 0.24, 0.28] });
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          mb.box(m(s, { at: [sx * 0.28, 0.36, sz * 0.19], size: [0.03, 0.72, 0.03] }));
+          mb.cyl(m(MAT.rubber, { at: [sx * 0.28, 0.035, sz * 0.19], axis: 'x', r: 0.035, h: 0.02, segs: 12 }));
+        }
+      }
+      for (const y of [0.24, 0.46, 0.70]) {
+        mb.box(m(MAT.steel, { at: [0, y, 0], size: [0.60, 0.02, 0.40], uv: 2.5, color: [0.45, 0.47, 0.5] }));
+        mb.box(m(s, { at: [0, y + 0.03, -0.19], size: [0.60, 0.05, 0.02] }));
+      }
+      mb.box(m(MAT.plastic, { at: [-0.14, 0.755, 0.02], size: [0.22, 0.09, 0.16], color: [0.75, 0.25, 0.12] }));
+      mb.box(m(MAT.plastic, { at: [0.16, 0.735, -0.02], size: [0.18, 0.05, 0.14], color: [0.2, 0.22, 0.26] }));
+      for (let i = 0; i < 3; i++) {
+        mb.box(m(MAT.pcb, { at: [0.08 + i * 0.01, 0.48 + i * 0.006, 0.06], size: [0.20, 0.004, 0.16], color: [1.1, 1.1, 1.1], uv: 3 }));
+      }
+    },
+
+    /** 绿植 */
+    plant(mb) {
+      mb.cyl(m(MAT.tile, { at: [0, 0.11, 0], axis: 'y', r: 0.15, r1: 0.18, h: 0.22, segs: 18, color: [0.72, 0.45, 0.32], rough: 0.6 }));
+      mb.cyl(m(MAT.plastic, { at: [0, 0.225, 0], axis: 'y', r: 0.165, h: 0.02, segs: 18, color: [0.18, 0.13, 0.09] }));
+      for (let i = 0; i < 22; i++) {
+        const a = (i / 22) * Math.PI * 2 + i * 1.9;
+        const h = 0.26 + ((i * 7) % 5) * 0.11;
+        const lean = 0.35 + ((i * 3) % 4) * 0.12;
+        mb.pushTRS([Math.cos(a) * 0.05, 0.24, Math.sin(a) * 0.05], [lean * Math.cos(a), -a, lean * Math.sin(a)]);
+        mb.box(m(MAT.paint, { at: [0, h / 2, 0], size: [0.012, h, 0.012], color: [0.15, 0.30, 0.13], rough: 0.8 }));
+        // 叶片：两片对生，稍微翘起
+        for (const sx of [-1, 1]) {
+          mb.pushTRS([sx * 0.055, h * 0.82, 0], [0, 0, sx * -0.5]);
+          mb.box(m(MAT.paint, {
+            at: [0, 0, 0], size: [0.13, 0.010, 0.075],
+            color: [0.14, 0.38 + (i % 3) * 0.07, 0.15], rough: 0.75,
+          }));
+          mb.pop();
+        }
+        mb.box(m(MAT.paint, { at: [0, h + 0.03, 0], size: [0.05, 0.09, 0.03], color: [0.16, 0.44, 0.17], rough: 0.75 }));
+        mb.pop();
+      }
+    },
+
+    /** 霓虹灯招牌（自发光） */
+    neon(mb, opt) {
+      mb.box(m(MAT.plastic, { at: [0, 0, -0.01], size: [(opt && opt.w) || 0.62, (opt && opt.h) || 0.30, 0.02], color: [0.05, 0.05, 0.06] }));
+      mb.quad({
+        tex: opt.tex,
+        points: [[-(opt.w || 0.62) / 2, -(opt.h || 0.30) / 2, 0.002], [(opt.w || 0.62) / 2, -(opt.h || 0.30) / 2, 0.002],
+          [(opt.w || 0.62) / 2, (opt.h || 0.30) / 2, 0.002], [-(opt.w || 0.62) / 2, (opt.h || 0.30) / 2, 0.002]],
+        normal: [0, 0, 1], color: [1, 1, 1], rough: 0.3, emis: 1.0,
+      });
+    },
+
+    /** 桌下 LED 灯带 */
+    ledStrip(mb, opt) {
+      const len = (opt && opt.len) || 3.0;
+      mb.box(m(MAT.plastic, { at: [0, 0, 0], size: [len, 0.02, 0.02], color: [0.15, 0.15, 0.16] }));
+      mb.box(m(MAT.plasticWhite, {
+        at: [0, -0.012, 0], size: [len - 0.04, 0.006, 0.016],
+        color: (opt && opt.color) || [0.45, 0.72, 1.0], emis: 1.0, rough: 0.25,
+      }));
+    },
+
+    /** 垃圾桶 */
+    bin(mb) {
+      mb.cyl(m(MAT.plastic, { at: [0, 0.16, 0], axis: 'y', r: 0.13, r1: 0.16, h: 0.32, segs: 18, color: [0.18, 0.20, 0.23], caps: false }));
+      mb.cyl(m(MAT.plastic, { at: [0, 0.005, 0], axis: 'y', r: 0.13, h: 0.01, segs: 18, color: [0.15, 0.16, 0.18] }));
+      mb.cyl(m(MAT.plastic, { at: [0, 0.315, 0], axis: 'y', r: 0.168, h: 0.014, segs: 18, color: [0.22, 0.24, 0.27] }));
+      mb.box(m(MAT.paper, { at: [0.03, 0.33, 0.02], size: [0.10, 0.05, 0.09], color: [0.85, 0.83, 0.78] }));
+    },
+
+    /** 灭火器 */
+    extinguisher(mb) {
+      mb.cyl(m(MAT.paint, { at: [0, 0.22, 0], axis: 'y', r: 0.075, h: 0.36, segs: 16, color: [0.46, 0.05, 0.04], rough: 0.4 }));
+      mb.cyl(m(MAT.paint, { at: [0, 0.42, 0], axis: 'y', r: 0.05, r1: 0.028, h: 0.05, segs: 14, color: [0.38, 0.05, 0.04] }));
+      mb.cyl(m(MAT.steel, { at: [0, 0.46, 0], axis: 'y', r: 0.022, h: 0.04, segs: 12, color: [0.6, 0.6, 0.62] }));
+      mb.box(m(MAT.steel, { at: [0, 0.485, 0.01], size: [0.05, 0.02, 0.09], color: [0.15, 0.15, 0.16] }));
+      mb.box(m(MAT.paper, { at: [0, 0.24, 0.077], size: [0.09, 0.11, 0.002], color: [0.95, 0.93, 0.85] }));
+      mb.tube(m(MAT.rubber, {
+        points: bezier([0.05, 0.44, 0], [0.12, 0.36, 0.04], [0.10, 0.22, 0.06], [0.06, 0.14, 0.03], 8),
+        r: 0.010, sides: 6,
+      }));
+    },
+
+    /** 相框 */
+    photo(mb, opt) {
+      mb.box(m(MAT.woodDark, { at: [0, 0, -0.008], size: [(opt.w || 0.26) + 0.03, (opt.h || 0.20) + 0.03, 0.014] }));
+      mb.quad({
+        tex: opt.tex,
+        points: [[-(opt.w || 0.26) / 2, -(opt.h || 0.20) / 2, 0], [(opt.w || 0.26) / 2, -(opt.h || 0.20) / 2, 0],
+          [(opt.w || 0.26) / 2, (opt.h || 0.20) / 2, 0], [-(opt.w || 0.26) / 2, (opt.h || 0.20) / 2, 0]],
+        normal: [0, 0, 1], color: [1, 1, 1], rough: 0.25,
+      });
+    },
+
+    /** 插排与地面走线 */
+    powerStrip(mb) {
+      mb.box(m(MAT.plasticWhite, { at: [0, 0.018, 0], size: [0.34, 0.036, 0.075], color: [0.85, 0.85, 0.83], rough: 0.5 }));
+      for (let i = 0; i < 4; i++) {
+        mb.box(m(MAT.plastic, { at: [-0.12 + i * 0.08, 0.037, 0], size: [0.055, 0.004, 0.055], color: [0.2, 0.2, 0.21] }));
+      }
+      mb.box(m(MAT.plastic, { at: [0.145, 0.037, 0], size: [0.02, 0.006, 0.03], color: [0.9, 0.25, 0.15], emis: 0.6 }));
+      mb.tube(m(MAT.rubber, {
+        points: bezier([-0.17, 0.018, 0], [-0.4, 0.02, 0.1], [-0.7, 0.02, -0.1], [-1.0, 0.02, 0.05], 12),
+        r: 0.008, sides: 6,
+      }));
+    },
+
+    /** 木格栅背景墙 */
+    slatWall(mb, opt) {
+      const w = opt.w, h = opt.h;
+      mb.box(m(MAT.woodDark, { at: [0, 0, -0.015], size: [w, h, 0.025], uv: 2, color: [0.22, 0.17, 0.13] }));
+      for (let x = -w / 2 + 0.06; x <= w / 2 - 0.06; x += 0.115) {
+        mb.box(m(MAT.wood, { at: [x, 0, 0.012], size: [0.055, h - 0.03, 0.03], uv: 2.2, color: [0.60, 0.42, 0.28] }));
+      }
+      mb.box(m(MAT.woodDark, { at: [0, h / 2, 0.014], size: [w, 0.05, 0.05], color: [0.26, 0.20, 0.15] }));
+      mb.box(m(MAT.woodDark, { at: [0, -h / 2, 0.014], size: [w, 0.05, 0.05], color: [0.26, 0.20, 0.15] }));
+    },
+
+    /** 玻璃展示柜（内置灯带 + 展示硬件） */
+    displayCase(mb) {
+      const W = 1.25, H = 2.0, D = 0.42;
+      const fr = m(MAT.steelDark, { color: [0.16, 0.17, 0.20], rough: 0.35 });
+      // 立柱与横梁
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) mb.box(m(fr, { at: [sx * W / 2, H / 2, sz * D / 2], size: [0.05, H, 0.05] }));
+      }
+      for (const y of [0.02, H - 0.02]) {
+        mb.box(m(fr, { at: [0, y, 0], size: [W, 0.05, D] }));
+      }
+      // 层板 + 灯带
+      const shelves = [0.42, 0.86, 1.30, 1.72];
+      for (const y of shelves) {
+        mb.box(m(MAT.plastic, { at: [0, y, 0], size: [W - 0.06, 0.022, D - 0.06], color: [0.10, 0.11, 0.13], rough: 0.4 }));
+        mb.box(m(MAT.plasticWhite, {
+          at: [0, y + 0.018, D / 2 - 0.05], size: [W - 0.14, 0.008, 0.012],
+          color: [0.55, 0.78, 1.0], emis: 1.0, rough: 0.3,
+        }));
+      }
+      // 展品：显卡盒 / 处理器盒 / 内存 / 老 CPU
+      const box = (x, y, z, sx, sy, sz, col) => mb.box(m(MAT.plastic, { at: [x, y, z], size: [sx, sy, sz], color: col, rough: 0.45 }));
+      box(-0.32, 0.50, 0, 0.42, 0.14, 0.22, [0.12, 0.13, 0.16]);
+      box(-0.32, 0.575, 0.01, 0.36, 0.012, 0.16, [0.20, 0.55, 0.85]);
+      box(0.30, 0.52, 0, 0.26, 0.18, 0.20, [0.55, 0.13, 0.11]);
+      box(-0.30, 0.94, 0, 0.30, 0.14, 0.20, [0.10, 0.35, 0.55]);
+      box(0.28, 0.93, 0, 0.34, 0.12, 0.18, [0.16, 0.17, 0.20]);
+      for (let i = 0; i < 4; i++) box(-0.42 + i * 0.24, 1.40, 0, 0.05, 0.16, 0.13, [0.35, 0.12, 0.45]);
+      for (let i = 0; i < 3; i++) box(-0.34 + i * 0.32, 1.79, 0, 0.16, 0.10, 0.16, [0.70, 0.68, 0.55]);
+      // 玻璃
+      const g = m(MAT.glass, { alpha: 0.13, color: [0.10, 0.14, 0.18] });
+      mb.box(m(g, { at: [0, H / 2, D / 2], size: [W - 0.05, H - 0.06, 0.012] }));
+      for (const sx of [-1, 1]) mb.box(m(g, { at: [sx * W / 2, H / 2, 0], size: [0.012, H - 0.06, D - 0.05] }));
+      mb.box(m(MAT.paper, { at: [0, H - 0.06, D / 2 + 0.012], size: [0.7, 0.10, 0.006], color: [0.9, 0.88, 0.82] }));
+    },
+
+    /** 沙发（等候区） */
+    sofa(mb) {
+      const f = m(MAT.fabric, { color: [0.28, 0.31, 0.38], rough: 0.95, uv: 2.2 });
+      mb.box(m(f, { at: [0, 0.20, 0], size: [1.70, 0.26, 0.80] }));
+      mb.box(m(f, { at: [0, 0.40, -0.30], size: [1.62, 0.16, 0.18], color: [0.33, 0.36, 0.44] }));
+      for (const sx of [-1, 1]) {
+        mb.box(m(f, { at: [sx * 0.41, 0.375, 0.05], size: [0.78, 0.10, 0.66], color: [0.34, 0.37, 0.45] }));
+      }
+      mb.box(m(f, { at: [0, 0.55, -0.36], size: [1.70, 0.60, 0.16] }));
+      for (const sx of [-1, 1]) {
+        mb.box(m(f, { at: [sx * 0.86, 0.42, 0], size: [0.14, 0.44, 0.80], color: [0.25, 0.28, 0.34] }));
+        // 抱枕
+        mb.box(m(f, { at: [sx * 0.55, 0.55, -0.20], size: [0.30, 0.30, 0.12], color: sx > 0 ? [0.60, 0.30, 0.22] : [0.22, 0.42, 0.40] }));
+      }
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) mb.cyl(m(MAT.woodDark, { at: [sx * 0.75, 0.035, sz * 0.32], axis: 'y', r: 0.03, h: 0.07, segs: 8 }));
+      }
+    },
+
+    /** 茶几 */
+    coffeeTable(mb) {
+      mb.box(m(MAT.glass, { at: [0, 0.40, 0], size: [0.90, 0.02, 0.50], alpha: 0.22, color: [0.10, 0.16, 0.18] }));
+      mb.box(m(MAT.woodDark, { at: [0, 0.18, 0], size: [0.80, 0.03, 0.42] }));
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) mb.box(m(MAT.woodDark, { at: [sx * 0.40, 0.20, sz * 0.21], size: [0.05, 0.40, 0.05] }));
+      }
+      mb.box(m(MAT.paper, { at: [0.16, 0.415, 0.03], size: [0.24, 0.008, 0.32], color: [0.88, 0.86, 0.8], rough: 0.6 }));
+      mb.box(m(MAT.paper, { at: [0.12, 0.423, 0.00], size: [0.22, 0.008, 0.30], color: [0.75, 0.80, 0.86], rough: 0.6 }));
+      mb.cyl(m(MAT.plasticWhite, { at: [-0.24, 0.455, 0], axis: 'y', r: 0.042, h: 0.09, segs: 16, color: [0.9, 0.9, 0.88] }));
+    },
+
+    /** 大地毯（等候区） */
+    areaRug(mb, opt) {
+      const w = opt.w, d = opt.d;
+      mb.box(m(MAT.fabric, { at: [0, 0.006, 0], size: [w, 0.012, d], uv: 3, color: opt.color || [0.30, 0.26, 0.30] }));
+      mb.box(m(MAT.fabric, { at: [0, 0.013, 0], size: [w - 0.16, 0.004, d - 0.16], uv: 3, color: opt.color2 || [0.22, 0.20, 0.26] }));
+    },
+
+    /** 壁挂电视（播放宣传画面） */
+    wallTV(mb, opt) {
+      const w = (opt && opt.w) || 1.30, h = (opt && opt.h) || 0.76;
+      mb.box(m(MAT.plastic, { at: [0, 0, -0.03], size: [w, h, 0.05], color: [0.07, 0.07, 0.08] }));
+      mb.box(m(MAT.plastic, { at: [0, 0, 0.001], size: [w - 0.03, h - 0.03, 0.012], color: [0.03, 0.03, 0.035], rough: 0.2 }));
+      mb.quad({
+        tex: opt.tex, color: [1, 1, 1], rough: 0.25, metal: 0, emis: 0.85,
+        points: [[-w / 2 + 0.03, -h / 2 + 0.03, 0.009], [w / 2 - 0.03, -h / 2 + 0.03, 0.009],
+          [w / 2 - 0.03, h / 2 - 0.03, 0.009], [-w / 2 + 0.03, h / 2 - 0.03, 0.009]],
+        normal: [0, 0, 1],
+      });
     },
 
     /** 旧硬件（爷爷的收藏） */

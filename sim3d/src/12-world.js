@@ -34,7 +34,6 @@
     add('desk', M('deskSmall'), W.deskPos);
     add('shelf', M('shelf'), W.shelfPos, [0, PI / 2, 0]);
     add('chair', M('chair'), [1.85, 0, -1.55], [0, 0.9, 0]);
-    add('rug', M('rug'), [1.60, 0, 1.20], [0, 0.1, 0]);
     add('crate1', M('crate'), [-3.60, 0, 2.55], [0, 0.3, 0]);
     add('crate2', M('crate'), [-3.05, 0, 2.80], [0, -0.2, 0]);
     add('crate3', M('crate'), [-3.55, 0.4, 2.55], [0, 0.9, 0]);
@@ -45,6 +44,45 @@
     add('lamp2', M('ceilingLamp'), [1.60, 2.72, 0.60]);
     add('deskLamp', M('deskLamp'), [-2.45, 0.95, -2.80], [0, -0.6, 0]);
     add('clock', M('clock'), [3.55, 2.25, -3.33], [0, 0, 0]);
+
+    /* ---------- 店内装饰 ---------- */
+    add('pegboard', M('pegboard'), [-2.30, 1.70, -3.33]);
+    add('spoolRack', M('spoolRack'), [1.05, 1.35, -3.30]);
+    add('cart', M('cart'), [-3.05, 0, -2.35], [0, 0.35, 0]);
+    add('plant', M('plant'), [3.75, 0, 1.95], [0, 0.4, 0]);
+    add('plant2', M('plant'), [-3.95, 0, 2.95], [0, -0.6, 0]);
+    add('bin', M('bin'), [1.90, 0, -2.55], [0, 0.2, 0]);
+    add('extinguisher', M('extinguisher'), [3.95, 0, 2.85], [0, -0.5, 0]);
+    add('spare1', M('spareCase'), [-4.00, 0, 1.35], [0, 0.25, 0]);
+    add('spare2', M('spareCase'), [-4.00, 0.46, 1.35], [0, -0.18, 0]);
+    add('spare3', M('spareCase'), [-3.98, 0, 0.80], [0, -0.55, 0]);
+    add('crt', M('crt'), [3.30, 0.75, -3.05], [0, -0.45, 0]);
+    add('powerStrip', M('powerStrip'), [1.30, 0, -3.15], [0, 0.15, 0]);
+    add('neon', M('neon', { tex: 'label:neonRepair', w: 0.64, h: 0.32 }), [-4.11, 2.05, 0.60], [0, PI / 2, 0]);
+    add('photo', M('photo', { tex: 'label:photoGrandpa', w: 0.30, h: 0.23 }), [1.85, 1.72, -3.33]);
+    add('calendar', M('photo', { tex: 'label:calendar', w: 0.26, h: 0.34 }), [2.45, 1.75, -3.33]);
+    const led = add('led', M('ledStrip', { len: 3.6, color: [0.42, 0.70, 1.0] }), [-0.60, 0.855, -2.52]);
+    led.emisMul = 0.7;
+    const led2 = add('led2', M('ledStrip', { len: 1.5, color: [0.55, 0.45, 1.0] }), [2.90, 0.70, -2.68]);
+    led2.emisMul = 0.55;
+
+    // 木格栅背景墙 + 天花板灯槽 + 展示柜 + 等候区
+    add('slatWall', M('slatWall', { w: 3.4, h: 2.4 }), [0.55, 1.42, -3.44]);
+    const cove = [
+      ['coveN', 3.4, [0, 2.72, -3.30], [0, 0, 0], [0.16, 0.46, 1.0]],
+      ['coveS', 3.4, [0, 2.72, 3.30], [0, 0, 0], [0.45, 0.20, 1.0]],
+      ['coveW', 6.4, [-3.86, 2.72, 0], [0, PI / 2, 0], [1.0, 0.14, 0.42]],
+      ['coveE', 6.4, [3.86, 2.72, 0], [0, PI / 2, 0], [0.14, 0.80, 0.95]],
+    ];
+    for (const c of cove) {
+      const n = add(c[0], M('ledStrip', { len: c[1], color: c[4] }), c[2], c[3]);
+      n.emisMul = 0.45;
+    }
+    add('wallTV', M('wallTV', { tex: 'label:tvAd', w: 1.4, h: 0.82 }), [-1.30, 1.80, 3.37], [0, PI, 0]);
+    add('displayCase', M('displayCase'), [-3.55, 0, 3.15], [0, 0.55, 0]);
+    add('sofa', M('sofa'), [1.15, 0, 2.95], [0, PI, 0]);
+    add('coffeeTable', M('coffeeTable'), [1.15, 0, 2.05], [0, 0, 0]);
+    add('rug', M('areaRug', { w: 3.0, d: 2.2, color: [0.26, 0.22, 0.26], color2: [0.19, 0.17, 0.22] }), [1.15, 0, 2.45]);
 
     /* ---------- 墙面教学海报 ---------- */
     add('posterFlow', M('poster', { tex: 'label:posterFlow', w: 0.62, h: 0.88 }), [-2.05, 1.78, -3.33]);
@@ -89,7 +127,7 @@
     scene.lights.push({ pos: [1.60, 2.62, 0.60], color: [1.0, 0.96, 0.90], intensity: 12, range: 9 });
     scene.lights.push({ pos: [-1.30, 2.10, -2.45], color: [1.0, 0.97, 0.92], intensity: 6, range: 4.5 });
     scene.lights.push({ pos: [0.80, 1.95, -2.35], color: [1.0, 0.97, 0.94], intensity: 5, range: 3.6 });
-    const lampLight = { pos: [-2.32, 1.34, -2.76], color: [1.0, 0.86, 0.62], intensity: 2.2, range: 3.0 };
+    const lampLight = { pos: [-2.32, 1.34, -2.76], color: [1.0, 0.86, 0.62], intensity: 1.5, range: 2.8 };
     scene.lights.push(lampLight);
     const screenLight = { pos: [2.90, 1.25, -2.92], color: [0.55, 0.72, 1.0], intensity: 0, range: 2.6 };
     scene.lights.push(screenLight);
@@ -109,6 +147,12 @@
       box(2.03, 0, -3.38, 3.77, 0.75, -2.62),   // 显示器桌
       box(-4.16, 0, -2.12, -3.62, 2.05, 1.52),  // 货架
       box(1.55, 0, -1.85, 2.15, 0.60, -1.25),   // 椅子
+      box(-3.40, 0, -2.60, -2.70, 0.75, -2.10), // 工具车
+      box(-4.16, 0, 0.55, -3.80, 0.92, 1.62),   // 备用机箱堆
+      box(1.72, 0, -2.72, 2.08, 0.35, -2.38),   // 垃圾桶
+      box(-4.00, 0, 2.75, -2.95, 2.00, 3.60),   // 展示柜
+      box(0.20, 0, 2.50, 2.10, 0.90, 3.45),     // 沙发
+      box(0.70, 0, 1.78, 1.60, 0.45, 2.32),     // 茶几
       box(-3.85, 0, 2.30, -3.35, 0.85, 2.80),   // 纸箱
       box(-3.30, 0, 2.55, -2.80, 0.45, 3.05),
     );

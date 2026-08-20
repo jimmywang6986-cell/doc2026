@@ -404,7 +404,7 @@
     {
       id: 'mb_mat', chapter: 2, accept: 'mb', title: '把主板放到防静电垫上',
       anchor: { parent: 'root', pos: [-1.95, 0.958, -2.90], rot: [-PI / 2, 0, 0] },
-      approach: [0, 0.18, 0],
+      approach: [0, 0.18, 0], homeLabel: '防静电垫',
       hint: '主板背面有裸露焊点，必须放在防静电垫上作业',
       lessonKey: 'mb',
     },

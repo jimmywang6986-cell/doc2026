@@ -138,6 +138,20 @@
       this.player = new root.PLAYER.Player(root.WORLD.W.playerStart, root.WORLD.W.playerYaw);
       this.player.colliders = this.world.colliders;
 
+      // 第一人称双手（作为 viewmodel 绘制，不会插进场景物体里）
+      this.hands = {
+        right: new root.SCENE.Node({ name: 'handR', model: root.MODELS.get('hand', { side: 1 }), noShadow: true }),
+        left: new root.SCENE.Node({ name: 'handL', model: root.MODELS.get('hand', { side: -1 }), noShadow: true }),
+        rightGrip: new root.SCENE.Node({ name: 'handRG', model: root.MODELS.get('hand', { side: 1, grip: 1 }), noShadow: true }),
+        leftGrip: new root.SCENE.Node({ name: 'handLG', model: root.MODELS.get('hand', { side: -1, grip: 1 }), noShadow: true }),
+      };
+      for (const k in this.hands) {
+        this.hands[k].viewmodel = true;
+        this.hands[k].visible = false;
+        this.scene.add(this.hands[k]);
+      }
+      this.punch = 0;
+
       this.ghost = new root.SCENE.Node({ name: 'ghost', visible: false, noShadow: true, alpha: 0.34 });
       this.ghost.tint = [0.35, 0.95, 1.0];
       this.ghost.tintStrength = 0.85;
@@ -291,17 +305,48 @@
       if (step) root.UI.toast('目标：' + step.title + (step.hint ? '（' + step.hint + '）' : ''), 'info');
     },
 
+    /** 零件的「原处」：货架上的初始位置，或上一次被放置/安装的位置 */
+    homeOf(part) {
+      return part.home || {
+        parentName: 'root',
+        pos: part.def.shelf.slice(),
+        rot: (part.def.shelfRot || [0, 0, 0]).slice(),
+        label: '货架',
+      };
+    },
+
+    homeWorld(part) {
+      const h = this.homeOf(part);
+      const parent = this.resolveParent(h.parentName);
+      return M4.xformPoint([0, 0, 0], parent.world, h.pos);
+    },
+
+    /** 把零件放回原处（Q 键，或对准原处按 E） */
+    placeHome(part, silent) {
+      const h = this.homeOf(part);
+      const parent = this.resolveParent(h.parentName);
+      this.animations = this.animations.filter((a) => a.node !== part.node);
+      part.node.matrixOverride = null;
+      part.node.viewmodel = false;
+      parent.add(part.node);
+      part.node.pos = h.pos.slice();
+      part.node.rot = h.rot.slice();
+      part.node.alpha = 1;
+      part.state = h.installed ? 'installed' : 'shelf';
+      if (this.held === part) {
+        this.held = null;
+        root.UI.setHeld(null);
+      }
+      if (!silent) {
+        root.AUDIO.play('pickup');
+        root.UI.toast('已放回' + (h.label || '原处') + '：' + part.def.name, 'info');
+      }
+    },
+
     dropHeld(silent) {
       const p = this.held;
       if (!p) return;
-      this.held = null;
-      p.state = 'shelf';
-      p.node.matrixOverride = null;
-      if (p.node.parent !== this.scene.root) this.scene.root.add(p.node);
-      p.node.pos = p.def.shelf.slice();
-      p.node.rot = (p.def.shelfRot || [0, 0, 0]).slice();
-      root.UI.setHeld(null);
-      if (!silent) root.UI.toast('已放回原位：' + p.def.name, 'info');
+      this.placeHome(p, silent);
     },
 
     /* ---------------- 安装 ---------------- */
@@ -355,6 +400,7 @@
       const target = step.anchor.pos.slice();
 
       node.matrixOverride = null;
+      node.viewmodel = false;
       // 同一节点只保留最新的安装动画
       this.animations = this.animations.filter((a) => a.node !== node);
       parent.add(node);
@@ -381,6 +427,15 @@
 
       this.held = null;
       part.state = 'installed';
+      // 记住这次的落点，后面再拿起来时可以原样放回
+      part.home = {
+        parentName: step.anchor.parent,
+        pos: target.slice(),
+        rot: (step.anchor.rot || [0, 0, 0]).slice(),
+        label: step.homeLabel || '原位',
+        installed: true,
+        model: node.model,
+      };
       root.UI.setHeld(null);
       root.AUDIO.play(step.sound || 'click');
       root.RENDER.flash = 0.05;
@@ -448,32 +503,12 @@
       };
       // 1) 手持零件 → 安装点
       const step = this.targetStepForHeld();
-      let ghostShown = false;
       if (step) {
         const wp = this.anchorWorld(step);
         const aim = this.aimPoint(wp, 0.05, 2.1, 0.36);
-        if (aim) {
-          const ok = this.reqMet(step);
-          add(aim, ok ? 'install' : 'blocked', { step, bonus: 0.5 });
-          if (ok) {
-            const p = this.held.def;
-            const gm = (step.installOpts && p.installModel)
-              ? root.MODELS.get(p.installModel, step.installOpts)
-              : step.externalCables
-                ? root.MODELS.get('cableRun', root.WORLD.externalCablePaths())
-                : root.MODELS.get(p.model, p.modelOpts);
-            this.ghost.model = gm;
-            const parent = this.resolveParent(step.anchor.parent);
-            if (this.ghost.parent !== parent) parent.add(this.ghost);
-            this.ghost.pos = (step.installOpts || step.externalCables) ? [0, 0, 0] : step.anchor.pos.slice();
-            this.ghost.rot = (step.anchor.rot || [0, 0, 0]).slice();
-            this.ghost.visible = true;
-            this.ghost.alpha = 0.28 + Math.sin(performance.now() * 0.005) * 0.08;
-            ghostShown = true;
-          }
-        }
+        if (aim) add(aim, this.reqMet(step) ? 'install' : 'blocked', { step, bonus: 0.5 });
         // 内存插错槽的教学
-        if (step.wrongSlots && !ghostShown) {
+        if (step.wrongSlots) {
           for (const ws of step.wrongSlots) {
             const parent = this.resolveParent(step.anchor.parent);
             const wp2 = M4.xformPoint([0, 0, 0], parent.world, ws.pos);
@@ -481,7 +516,11 @@
           }
         }
       }
-      if (!ghostShown) this.ghost.visible = false;
+      // 1b) 手持零件 → 放回原处（对准它原来待的地方）
+      if (this.held) {
+        const hw = this.homeWorld(this.held);
+        add(this.aimPoint(hw, 0.10, 2.2, 0.26), 'rest', { target: this.held, bonus: 0.15 });
+      }
 
       // 2) 场景物体：零件、手记、电源键、显示器
       for (const id in this.world.parts) {
@@ -509,7 +548,44 @@
       let best = null;
       for (const c of cands) if (!best || c.score < best.score) best = c;
       this.focus = best;
+      this.updateGhost(best);
       return this.focus;
+    },
+
+    /** 半透明「幽灵零件」预览：安装点用青色，放回原处用琥珀色 */
+    updateGhost(best) {
+      const g = this.ghost;
+      if (!best || !this.held || (best.kind !== 'install' && best.kind !== 'rest')) {
+        g.visible = false;
+        return;
+      }
+      const def = this.held.def;
+      let parent, pos, rot, model;
+      if (best.kind === 'install') {
+        const step = best.step;
+        model = (step.installOpts && def.installModel)
+          ? root.MODELS.get(def.installModel, step.installOpts)
+          : step.externalCables
+            ? root.MODELS.get('cableRun', root.WORLD.externalCablePaths())
+            : root.MODELS.get(def.model, def.modelOpts);
+        parent = this.resolveParent(step.anchor.parent);
+        pos = (step.installOpts || step.externalCables) ? [0, 0, 0] : step.anchor.pos.slice();
+        rot = (step.anchor.rot || [0, 0, 0]).slice();
+        g.tint = [0.35, 0.95, 1.0];
+      } else {
+        const h = this.homeOf(this.held);
+        model = h.model || root.MODELS.get(def.model, def.modelOpts);
+        parent = this.resolveParent(h.parentName);
+        pos = h.pos.slice();
+        rot = h.rot.slice();
+        g.tint = [1.0, 0.78, 0.32];
+      }
+      g.model = model;
+      if (g.parent !== parent) parent.add(g);
+      g.pos = pos;
+      g.rot = rot;
+      g.visible = true;
+      g.alpha = 0.28 + Math.sin(performance.now() * 0.005) * 0.08;
     },
 
     promptFor(f) {
@@ -534,6 +610,13 @@
           root.UI.setPrompt('<span class="warn">' + f.msg + '</span>');
           root.UI.crosshairState('blocked');
           break;
+        case 'rest': {
+          const h = this.homeOf(f.target);
+          root.UI.setPrompt(K('E') + ' 放回' + (h.label || '原处') + '：' + f.target.def.name
+            + '<span class="sub">也可以直接按 Q 放回</span>');
+          root.UI.crosshairState('hover');
+          break;
+        }
         case 'part': {
           const p = f.target.def;
           root.UI.setPrompt(K('E') + ' 拿起 ' + p.name + ' · ' + K('F') + ' 查看资料'
@@ -598,10 +681,12 @@
     interact() {
       const f = this.focus;
       if (!f) return;
+      this.punch = 1;
       switch (f.kind) {
         case 'install': this.tryInstall(f.step); break;
         case 'blocked': this.deny(BLOCK_MSG[f.step.id] || '前置步骤还没完成。'); break;
         case 'wrongslot': this.deny(f.msg); break;
+        case 'rest': this.placeHome(f.target); break;
         case 'part': {
           const part = f.target;
           const pend = this.pendingStepFor(part.def.kind);
@@ -787,6 +872,7 @@
         const p = this.world.parts[id];
         if (p.def.kind === s.accept
           && (p.state === 'shelf' || p.state === 'held' || (p.state === 'installed' && p.def.movable))) {
+          if (this.held && this.held !== p) this.dropHeld(true);
           this.held = p;
           p.state = 'held';
           this.tryInstall(s);
@@ -803,6 +889,56 @@
       const done = Object.keys(this.doneSteps).length;
       root.UI.setObjective(ch.title, s ? s.title : '全部完成 · 交付整机',
         s ? (s.hint || '') : '', done, this.steps.length);
+    },
+
+    /* ---------------- 第一人称手 / 手持物 ---------------- */
+    updateViewmodel(dt, now) {
+      const camM = M4.invert(M4.create(), this.player.view);
+      const p = this.player;
+      this.punch = Math.max(0, this.punch - dt * 3.2);
+      const punch = Math.sin(this.punch * Math.PI) * 0.075;   // 交互时向前一送
+      const t = now * 0.001;
+      const bob = p.bobAmp || 0;
+      const sway = {
+        x: Math.cos(p.bob * 0.5) * 0.016 * bob + Math.sin(t * 0.9) * 0.0035,
+        y: Math.abs(Math.sin(p.bob)) * 0.018 * bob + Math.sin(t * 1.4) * 0.0035,
+        z: Math.sin(p.bob) * 0.010 * bob,
+      };
+
+      const place = (node, pos, rot, scale) => {
+        const s = scale || 0.88;
+        const local = M4.fromTRS(M4.create(), [
+          pos[0] + sway.x * (pos[0] < 0 ? -1 : 1),
+          pos[1] + sway.y,
+          pos[2] + sway.z - punch,
+        ], rot, [s, s, s]);
+        node.matrixOverride = M4.mul(M4.create(), camM, local);
+        node.visible = true;
+      };
+
+      const H = this.hands;
+      H.right.visible = H.left.visible = H.rightGrip.visible = H.leftGrip.visible = false;
+
+      if (this.held) {
+        const hd = this.held.def.hold;
+        // 统一把手持物推远一点，给双手留出空间（视觉上更像真实第一人称）
+        const h = { pos: [hd.pos[0] * 1.05, hd.pos[1] - 0.015, hd.pos[2] - 0.15], rot: hd.rot };
+        const hold = M4.fromTRS(M4.create(),
+          [h.pos[0] + sway.x * 0.6, h.pos[1] + sway.y * 0.6, h.pos[2] + sway.z - punch], h.rot, [1, 1, 1]);
+        this.held.node.matrixOverride = M4.mul(M4.create(), camM, hold);
+        this.held.node.viewmodel = true;
+        // 双手从下方托住零件：按零件宽度分开，小臂朝画面下方斜出
+        const size = this.held.node.model ? this.held.node.model.size : [0.1, 0.1, 0.1];
+        const halfW = clamp(Math.max(size[0], size[2]) * 0.40, 0.062, 0.16);
+        const y = h.pos[1] - 0.062;
+        const z = h.pos[2] + 0.035;
+        place(H.rightGrip, [h.pos[0] + halfW, y, z], [0.62, -0.45, 0.20], 0.66);
+        place(H.leftGrip, [h.pos[0] - halfW, y, z], [0.62, 0.45, -0.20], 0.66);
+      } else {
+        // 空手时垂在画面下方，随呼吸轻微起伏
+        place(H.right, [0.31, -0.45, -0.54], [1.12, -0.40, 0.10], 0.70);
+        place(H.left, [-0.33, -0.47, -0.56], [1.12, 0.40, -0.10], 0.70);
+      }
     },
 
     /* ---------------- 自适应画质 ---------------- */
@@ -857,15 +993,7 @@
         this.stepSound(dt);
       }
 
-      // 手持零件跟随相机
-      if (this.held) {
-        const camM = M4.invert(M4.create(), this.player.view);
-        const h = this.held.def.hold;
-        const sway = Math.sin(performance.now() * 0.0016) * 0.004;
-        const hold = M4.fromTRS(M4.create(),
-          [h.pos[0], h.pos[1] + sway, h.pos[2]], h.rot, [1, 1, 1]);
-        this.held.node.matrixOverride = M4.mul(M4.create(), camM, hold);
-      }
+      this.updateViewmodel(dt, now);
 
       // 安装动画
       for (let i = this.animations.length - 1; i >= 0; i--) {

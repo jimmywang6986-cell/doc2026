@@ -117,7 +117,7 @@ void main(){
     float range = max(uLightPos[i].w, 0.01);
     // 物理平方衰减 + 距离窗口裁剪
     float f = clamp(1.0 - pow(dist/range, 4.0), 0.0, 1.0);
-    float att = f * f / max(dist*dist, 0.12);
+    float att = f * f / max(dist*dist, 0.22);
     if(att <= 0.0004) continue;
     col += brdf(N, V, dv/dist, albedo, rough, metal, uLightColor[i].rgb * uLightColor[i].w * att);
   }
@@ -314,9 +314,11 @@ void main(){
       const gl = this.gl;
       const shadowPass = opts.shadowPass;
       const transparentPass = !!opts.transparent;
+      const wantView = !!opts.viewmodel;
       for (const n of nodes) {
         if (!n.visible || !n.model) continue;
-        if (shadowPass && n.noShadow) continue;
+        if (!!n.viewmodel !== wantView) continue;
+        if (shadowPass && (n.noShadow || n.viewmodel)) continue;
         prog.um4('uModel', n.world);
         if (!shadowPass) {
           M4.normalMat(this.nrm, n.world);
@@ -420,6 +422,15 @@ void main(){
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthMask(false);
       this.drawNodes(scene.nodes, p, { transparent: true });
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+
+      // ---- 第一人称手部/手持物（清空深度后单独绘制，避免插进场景物体里） ----
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      this.drawNodes(scene.nodes, p, { transparent: false, viewmodel: true });
+      gl.enable(gl.BLEND);
+      gl.depthMask(false);
+      this.drawNodes(scene.nodes, p, { transparent: true, viewmodel: true });
       gl.depthMask(true);
       gl.disable(gl.BLEND);
 
