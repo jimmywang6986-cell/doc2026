@@ -147,7 +147,7 @@
       root.PLAYER.Input.init(canvas, (code, e, repeat) => this.onKey(code, e, repeat));
       canvas.addEventListener('click', () => {
         root.AUDIO.init(); root.AUDIO.resume();
-        if (this.started && !root.PLAYER.Input.blocked && !root.UI.modalOpen) canvas.requestPointerLock();
+        if (this.started && !root.PLAYER.Input.blocked && !root.UI.modalOpen) this.lockPointer();
       });
       window.addEventListener('resize', () => this.onResize());
       this.onResize();
@@ -190,12 +190,20 @@
       root.UI.hideTitle();
       root.UI.setKeyHints('<b>WASD</b> 移动 · <b>E</b> 交互 · <b>F</b> 资料 · <b>Q</b> 放回 · <b>Tab</b> 手册 · <b>Esc</b> 暂停');
       this.startTime = performance.now();
-      root.UI.dialogue(STORY.intro, () => {
-        document.getElementById('gl').requestPointerLock();
-      });
+      root.UI.dialogue(STORY.intro, () => this.lockPointer());
     },
 
     restart() { location.reload(); },
+
+    /** 指针锁定：部分环境（无头浏览器 / 无用户手势）会抛错，忽略即可 */
+    lockPointer() {
+      const c = document.getElementById('gl');
+      if (!c || !c.requestPointerLock) return;
+      try {
+        const r = c.requestPointerLock();
+        if (r && typeof r.catch === 'function') r.catch(() => {});
+      } catch (e) { /* 忽略 */ }
+    },
 
     onResize() {
       const canvas = document.getElementById('gl');
@@ -578,9 +586,7 @@
         case 'KeyQ': if (this.held) this.dropHeld(); break;
         case 'Tab': this.openJournal(); break;
         case 'Escape':
-          root.UI.pauseMenu(() => {
-            document.getElementById('gl').requestPointerLock();
-          }, () => this.restart());
+          root.UI.pauseMenu(() => this.lockPointer(), () => this.restart());
           break;
         case 'KeyK':
           if (this.dev) this.devSkip();
