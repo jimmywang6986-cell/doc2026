@@ -17,10 +17,22 @@
      最高级提示 (直接看完整解答) 后答对, 按智能辅导系统的通行做法
      (bottom-out hint) 记为未掌握证据。
 
-  3. FSRS 风格的间隔复习 —— 依表现动态排期
-     幂律遗忘曲线 R(t) = (1 + t/(9S))^-1, 稳定度 S 随独立成功检索增长、
-     随失败回落。目标保持率 0.9 时复习间隔恰好约等于 S 天。
-     不使用 "第 1/2/4/7 天" 这类固定表格, 也不宣称遵循艾宾浩斯曲线。
+  3. 保守间隔复习排期 —— 依表现动态计算, 并按证据量限幅
+
+     遗忘曲线采用 FSRS 的幂律形式 R(t) = (1 + t/(9S))^-1; 目标保持率 0.9 时
+     复习间隔恰好约等于稳定度 S 天。
+
+     **但稳定度的更新规则是本模块自定义的保守规则, 不是 FSRS 算法, 参数
+     未经任何真实数据校准。** 不得对外表述为 "FSRS 算法" 或 "科学复习间隔"。
+
+     为避免证据不足时把间隔外推得过远, 复习间隔上限随成功次数逐级放开
+     (见 _INTERVAL_CAP_BY_REPS)。这是**不确定性约束**, 不是 "第 1/2/4/7 天"
+     那种固定复习表 —— 依赖提示的学生增长更慢、更晚触到上限, 失败则回落。
+
+     同样不宣称遵循艾宾浩斯曲线。
+
+免责边界: 本模块的输出是**引擎在占位参数下的估计值**, 用于驱动学习路径,
+不是对学生真实掌握概率或最佳复习时机的科学论断。对外表述须保留 "估计" 二字。
 """
 
 from __future__ import annotations
@@ -49,6 +61,34 @@ _GUESS_BY_HINT = {
     Hint.DIRECTION: 0.50,
     Hint.EXAMPLE: 0.75,
 }
+
+#: 复习间隔上限（天）随成功次数逐级放开。
+#: 依据是证据量而非日历: 只观测到一两次成功时, 把间隔外推到数十天缺乏根据。
+#: 达到 _CAP_FREE_AFTER 次成功后不再限幅, 交由稳定度自身增长决定。
+_INTERVAL_CAP_BY_REPS = {1: 1.0, 2: 3.0, 3: 7.0, 4: 15.0}
+_CAP_FREE_AFTER = 4
+
+
+def interval_cap(reps: int) -> float:
+    """给定成功次数下允许的最大复习间隔（天）。"""
+    if reps <= 0:
+        return _INTERVAL_CAP_BY_REPS[1]
+    if reps > _CAP_FREE_AFTER:
+        return math.inf
+    return _INTERVAL_CAP_BY_REPS[reps]
+
+
+class MasteryBand(Enum):
+    """面向学生展示的掌握档位。
+
+    参数未经校准时, 向学生显示 "你已掌握 98.4%" 是虚假的精确。
+    学生端只展示档位, 概率值仅在引擎内部和教师端使用, 且标注为估计值。
+    """
+
+    BUILDING = "正在建立"
+    NEEDS_WORK = "需巩固"
+    BASIC = "基本掌握"
+    STABLE = "稳定掌握"
 
 
 # --------------------------------------------------------------- BKT 参数
@@ -82,8 +122,10 @@ class SkillState:
 
     skill: str
     params: BKTParams = field(default_factory=BKTParams)
-    mastery: float | None = None  # p(L), None 表示尚未初始化
-    stability: float = 0.0  # 记忆稳定度, 单位天
+    #: p(L) 的**估计值**, 取决于占位参数, 不是学生真实掌握概率。
+    #: 学生端请用 band() 展示档位, 不要直接显示这个数。
+    mastery: float | None = None
+    stability: float = 0.0  # 记忆稳定度估计, 单位天
     reps: int = 0  # 成功独立检索次数
     lapses: int = 0  # 失败次数
     consecutive_failures: int = 0  # 连续未通过次数, 用于触发回退到前置
@@ -161,10 +203,12 @@ class SkillState:
             Hint.DIRECTION: 1.4,
             Hint.EXAMPLE: 1.15,
         }[hint]
-        # 掌握度越高, 同一次成功带来的稳定度增长越大
+        # 掌握度估计越高, 同一次成功带来的稳定度增长越大
         assert self.mastery is not None
         gain *= 0.6 + 0.8 * self.mastery
-        self.stability = max(1.0, self.stability * gain) if self.stability else 1.0 * gain
+        grown = self.stability * gain if self.stability else gain
+        # 证据不足时不外推: 按成功次数限幅
+        self.stability = min(grown, interval_cap(self.reps))
 
     def retrievability(self, day: float) -> float:
         """幂律遗忘曲线下的当前可提取概率。"""
@@ -174,11 +218,24 @@ class SkillState:
         return (1.0 + t / (9.0 * self.stability)) ** -1.0
 
     def due_day(self, target_retention: float = 0.9) -> float | None:
-        """下次复习时间: 可提取概率跌到目标保持率的那一天。"""
+        """下次复习时间: 估计可提取概率跌到目标保持率的那一天。
+
+        这是当前占位参数下引擎计算出的排期结果, 不是经验证的最佳复习时机。
+        """
         if self.last_seen_day is None or self.stability <= 0:
             return None
         interval = 9.0 * self.stability * (1.0 / target_retention - 1.0)
         return self.last_seen_day + interval
+
+    def band(self, threshold: float = 0.85, stable_reps: int = 2) -> MasteryBand:
+        """面向学生的掌握档位。不暴露概率值, 避免虚假的精确。"""
+        m = self.mastery or 0.0
+        if m < 0.40:
+            return MasteryBand.BUILDING
+        if m < threshold:
+            return MasteryBand.NEEDS_WORK
+        # 达到阈值但独立成功次数不足, 不给 "稳定掌握"
+        return MasteryBand.STABLE if self.reps >= stable_reps else MasteryBand.BASIC
 
 
 # --------------------------------------------------------------- 路径引擎

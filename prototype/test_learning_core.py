@@ -11,9 +11,11 @@ from learning_core import (
     BKTParams,
     Curriculum,
     Hint,
+    MasteryBand,
     PathEngine,
     SkillState,
     class_summary,
+    interval_cap,
 )
 
 # 演示单元: Python 条件与循环, 6 个知识点 + 前置关系
@@ -121,6 +123,48 @@ def test_independent_success_extends_interval():
     assert intervals == sorted(intervals), intervals
 
 
+# --------------------------------------------- 保守限幅: 证据不足时不外推
+
+
+def test_interval_capped_by_evidence_count():
+    """独立答对 N 次时, 复习间隔不得超过 N 次对应的上限。"""
+    s = fresh("循环边界")
+    for d in range(4):
+        s.observe(True, Hint.NONE, day=d)
+        iv = s.due_day() - d
+        cap = interval_cap(s.reps)
+        assert iv <= cap + 1e-9, f"第 {s.reps} 次成功后间隔 {iv:.2f} 超过上限 {cap}"
+
+
+def test_first_three_intervals_are_conservative():
+    """最理想的学生（全独立答对）前三次也不超过 1 / 3 / 7 天。"""
+    s = fresh("循环边界")
+    got = []
+    for d in range(3):
+        s.observe(True, Hint.NONE, day=d)
+        got.append(round(s.due_day() - d, 3))
+    assert got == [1.0, 3.0, 7.0], got
+
+
+def test_cap_lifts_after_enough_evidence():
+    s = fresh("循环边界")
+    for d in range(_ENOUGH := 6):
+        s.observe(True, Hint.NONE, day=d)
+    assert interval_cap(s.reps) == float("inf")
+    assert s.due_day() - 5 > 15.0, "证据充分后应突破限幅继续增长"
+
+
+def test_hint_dependent_student_hits_cap_later():
+    """限幅不是固定复习表: 依赖提示的学生增长更慢, 间隔仍然更短。"""
+    a, b = fresh("if_else"), fresh("if_else")
+    for d in range(3):
+        a.observe(True, Hint.NONE, day=d)
+        b.observe(True, Hint.EXAMPLE, day=d)
+    iv_a, iv_b = a.due_day() - 2, b.due_day() - 2
+    assert iv_a > iv_b * 2, (iv_a, iv_b)
+    assert iv_b < interval_cap(b.reps), "依赖提示者不应触到上限"
+
+
 def test_failure_shortens_interval():
     s = fresh("循环边界")
     for d in range(3):
@@ -145,6 +189,33 @@ def test_due_interval_matches_target_retention():
     s.observe(True, Hint.NONE, day=0)
     due = s.due_day(target_retention=0.9)
     assert abs(s.retrievability(due) - 0.9) < 1e-6
+
+
+# --------------------------------------------- 学生端档位: 不暴露概率
+
+
+def test_band_progression():
+    s = fresh("if_else")
+    assert s.band() is MasteryBand.BUILDING  # 先验 25%
+    s.observe(True, Hint.NONE, day=0)
+    assert s.band() is MasteryBand.NEEDS_WORK  # 67%
+    s.observe(True, Hint.NONE, day=1)
+    assert s.band() is MasteryBand.STABLE  # 93% 且已 2 次独立答对
+
+
+def test_high_estimate_but_few_reps_is_not_stable():
+    """掌握度估计达标但独立成功次数不足, 只能给 "基本掌握"。"""
+    s = fresh("if_else", p_init=0.90)
+    s.observe(True, Hint.NONE, day=0)
+    assert s.mastery >= 0.85 and s.reps == 1
+    assert s.band(stable_reps=2) is MasteryBand.BASIC
+
+
+def test_hint_dependent_student_never_shows_stable():
+    s = fresh("if_else")
+    for d in range(3):
+        s.observe(True, Hint.EXAMPLE, day=d)
+    assert s.band() in (MasteryBand.BUILDING, MasteryBand.NEEDS_WORK)
 
 
 # ------------------------------------------------- 掌握学习: 前置门控
@@ -334,22 +405,26 @@ if __name__ == "__main__":
 
     print("\n" + "=" * 74)
     print("2. 关键演示: 两名学生答题全对, 唯一差别是提示依赖")
+    print("   （标题须表述为: 同一占位参数下, 提示依赖对引擎估计结果的影响）")
     print("=" * 74)
     a, b = fresh("if_else"), fresh("if_else")
     for d in range(3):
         a.observe(True, Hint.NONE, day=d)
         b.observe(True, Hint.EXAMPLE, day=d)
+    print(f"   {'':<20}{'掌握度估计':>10}{'学生端档位':>12}{'复习间隔':>10}")
     for name, st in (("学生A 独立答对x3", a), ("学生B 靠例子提示x3", b)):
-        due = st.due_day()
         print(
-            f"   {name:<18} 掌握度 {st.mastery:5.1%}   稳定度 {st.stability:5.1f} 天   "
-            f"下次复习 第 {due:.1f} 天（间隔 {due - 2:.1f} 天）"
+            f"   {name:<20}{st.mastery:>10.1%}{st.band().value:>12}"
+            f"{st.due_day() - 2:>9.1f}天"
         )
     print(
-        f"\n   同样 3 题全对, 掌握度差 {abs(a.mastery - b.mastery):.1%}, "
-        f"复习间隔差 {(a.due_day() - b.due_day()):.1f} 天。"
+        f"\n   同样 3 题全对, 掌握度估计差 {abs(a.mastery - b.mastery):.1%}, "
+        f"复习间隔差 {(a.due_day() - b.due_day()):.1f} 天, 学生端档位也不同。"
     )
-    print("   这就是它区别于「AI 出题网站」的地方: 答对不等于会了。")
+    print("   这是它区别于「AI 出题网站」的地方: 不只看是否答对, 还估计是否独立掌握。")
+    print(f"\n   限幅说明: 学生A 已触到第 3 次成功的上限 {interval_cap(a.reps):.0f} 天;")
+    print(f"            学生B 增长慢, 尚未触顶（上限同为 {interval_cap(b.reps):.0f} 天）。")
+    print("            限幅依据是证据量, 不是固定复习表 —— 表现不同, 间隔就不同。")
 
     print("\n" + "=" * 74)
     print("3. 掌握学习: 前置未达标时不放行")
